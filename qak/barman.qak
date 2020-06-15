@@ -1,0 +1,37 @@
+System tearoom
+
+mqttBroker "localhost" : 1883 eventTopic "tearoom/barman"  
+
+Dispatch makeTea : makeTea( TEA )
+
+Event teaReady : teaReady( ARG )
+
+Context ctxtearoom ip [ host="localhost" port=9999]
+
+QActor barman context ctxtearoom {
+	
+	State s0 initial {
+		
+		println("Barman		| starts")
+		
+	}
+	Goto waiting
+	
+	State waiting{
+		println("Barman		| waiting")
+	}
+	Transition t0 whenMsg makeTea -> makingTea
+	
+	State makingTea {
+		onMsg(makeTea : TEA){	//COME SI USA STA COSA
+		
+			println("Barman 	| making tea $TEA")
+			
+			emit teaReady : TEA
+			
+		}
+	}
+	Goto waiting
+}
+
+
