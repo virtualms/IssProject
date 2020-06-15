@@ -1,0 +1,35 @@
+System smartbell
+
+//mqttBroker "localhost" : 1883 eventTopic "a/topic"
+
+//MESSAGES
+Request clientInHall : order(temp)
+Reply tempOk : tempOk(id)
+Reply tempNo : tempOk(msg)
+
+//CONTEXT
+Context ctxsmartbell ip [host="localhost" port=8020]
+
+//ACTOR
+QActor smartbell context ctxsmartbell{
+	
+	State s0 initial{
+		println("smartbell | s0")
+	}
+	
+	State waiting{
+		println("smartbell | waiting")
+	}
+	Transition t0 
+		whenRequest clientInHall -> check
+		
+	State check{
+		//temp
+		//if [# temp > 37.5 #] replyTo request with tempNo("value too high")
+		//else generate id; replyTo request with tempOk(id)
+		println("smartbell | check")
+	} 
+	Goto waiting
+}
+	
+

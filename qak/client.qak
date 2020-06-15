@@ -1,0 +1,96 @@
+System client
+
+//mqttBroker "localhost" : 1883 eventTopic "unibo/client"
+
+//MESSAGES
+Request clientInHall : order(temp)
+Reply tempNo : tempNo(val)
+Reply tempOk : tempOk(ID)
+
+Dispatch accept : accept(table)
+Dispatch delayMax : delayMax(del)
+
+Request order : order(te)
+Dispatch orderDelivered : orderDelivered(te)
+
+Dispatch teafinished : teafinished(arg)
+Dispatch endCons : endCons(cons)
+
+Dispatch paymentOk : paymentOk(bill)
+
+
+
+//CONTEXT
+Context ctxclient ip [host="localhost" port=8020]
+
+//ACTOR
+QActor client context ctxclient{
+	
+		State s0 initial{
+			println("client | s0")
+			//init temp=random [36-37.5]
+		}
+		
+		State checkTmp{
+			//temperatura controllata tramite smartbell (messaggio a smartbell)
+			//ok? ricevo id, altrimenti fuori dal sistema
+			//request smartbell -m clientInHall(temp)
+		}
+		Transition t0 
+			whenReply tempNo -> end
+			whenReply tempOk -> waitingForWaiter
+			
+		State waitingForWaiter{
+			//ricevo l'id
+			//onmsg id=payload
+			println("client | waiting for waiter")
+		}
+		Transition t1
+			whenMsg accept -> ordering
+			whenMsg delayMax -> waitingInHall
+			
+		
+		State waitingInHall{
+			//ricevo il delaymax, notifico la mia presenza al waiter e mi viene risposto con il
+			//maxwait time
+			//onmsg delayMax=payload
+			println("client | waiting in hall")
+		}
+		Transition t2
+			whenMsg accept -> ordering
+		
+		State ordering{
+			//faccio l'ordine? piu' te' da scegliere?
+			//mando una request al waiter?
+			
+			//request (?) waiter -m order : order(te)
+		}
+		Goto waitingInTable //oppure transizione quando ricevo ok dell'ordine?
+		
+		
+		State waitingInTable{
+			//aspetto finchè non mi arriva il te'
+			println("client | waitingInTable")
+		}
+		Transition t3 
+			whenMsg orderDelivered -> consuming
+		
+		State consuming{
+			//consumo il tè e notifico con un evento che ho finito
+			//oppure vengo esortato dal waiter ad andarmene se tempo>tmax
+			
+			println("client | consuming")
+		}
+		Transition t4 whenMsg endCons -> paying
+		
+		State paying{
+			//pago e vengo accompagnato all'uscita dal waiter
+		}
+		Transition t5
+			whenMsg paymentOk ->  end
+		
+		State end{
+			terminate 0
+		}
+			
+}
