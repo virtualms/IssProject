@@ -1,0 +1,10 @@
+Actors:
+-client.qak
+
+-waiter.qak
+
+-smartbell.qak
+
+-barman.qak
+
+-table.qak
