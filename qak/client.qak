@@ -3,14 +3,17 @@ System client
 //mqttBroker "localhost" : 1883 eventTopic "unibo/client"
 
 //MESSAGES
+//client-smartbell
 Request clientInHall : clientInHall(msg)
 Reply tempNo : tempNo(val)
 Reply tempOk : tempOk(ID)
 
-Dispatch accept : accept(table)
-Dispatch delayMax : delayMax(del)
+//waiter-client
+Dispatch newClientOk : newClientOk(table)
+Dispatch newClientWait : newClientWait(del)
 
 Request order : order(te)
+Reply orderGot : orderGot(te)
 Dispatch orderDelivered : orderDelivered(te)
 
 Dispatch teafinished : teafinished(arg)
@@ -18,6 +21,11 @@ Dispatch endCons : endCons(cons)
 
 Dispatch paymentOk : paymentOk(bill)
 
+/*
+ * 
+ * Dove inserire il messaggio atTable? E' relamente necessario?
+ * 
+ */
 
 
 //CONTEXT
@@ -30,8 +38,9 @@ QActor client context ctxclient{
 			println("client | s0")
 			//init temp=random [36-37.5]
 		}
+		Goto checkTemp
 		
-		State checkTmp{
+		State checkTemp{
 			//temperatura controllata tramite smartbell (messaggio a smartbell)
 			//ok? ricevo id, altrimenti fuori dal sistema
 			//request smartbell -m clientInHall(temp)
@@ -48,8 +57,8 @@ QActor client context ctxclient{
 			//request smartbell -m clientInHall(msg)
 		}
 		Transition t1
-			whenMsg accept -> ordering
-			whenMsg delayMax -> waitingInHall
+			whenMsg newClientOk -> ordering
+			whenMsg newClientWait -> waitingInHall
 			
 		
 		State waitingInHall{
@@ -58,7 +67,7 @@ QActor client context ctxclient{
 			println("client | waiting in hall")
 		}
 		Transition t2
-			whenMsg accept -> ordering
+			whenMsg newClientOk -> ordering
 		
 		State ordering{
 			//faccio l'ordine? piu' te' da scegliere?
@@ -66,14 +75,15 @@ QActor client context ctxclient{
 			
 			//request (?) waiter -m order : order(te)
 		}
-		Goto waitingInTable //oppure transizione quando ricevo ok dell'ordine?
+		Transition t3 
+			whenReply orderGot -> waitingInTable //oppure transizione quando ricevo ok dell'ordine?
 		
 		
 		State waitingInTable{
 			//aspetto finchè non mi arriva il te'
 			println("client | waitingInTable")
 		}
-		Transition t3 
+		Transition t4 
 			whenMsg orderDelivered -> consuming
 		
 		State consuming{
@@ -82,12 +92,12 @@ QActor client context ctxclient{
 			
 			println("client | consuming")
 		}
-		Transition t4 whenMsg endCons -> paying
+		Transition t5 whenMsg endCons -> paying
 		
 		State paying{
 			//pago e vengo accompagnato all'uscita dal waiter
 		}
-		Transition t5
+		Transition t6
 			whenMsg paymentOk ->  end
 		
 		State end{
