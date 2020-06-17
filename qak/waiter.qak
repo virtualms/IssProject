@@ -1,0 +1,141 @@
+System waiter
+
+// BROKER
+mqttBroker "localhost": 1833 eventTopic "finalTask/waiter"
+
+// DISPATCH REQUEST/REPLY AND EVENT
+
+
+Dispatch newClient : newClient(ID)
+Dispatch newClientWait : newClientWait(TIME)
+Dispatch newClientOk: newClientOk(OK)
+
+Dispatch atTable: atTable(OK)
+
+Dispatch clientReady : clientReady(OK)
+
+
+Dispatch endCons: endCons(OK)
+Dispatch paymentOK: paymentOK(OK)
+
+Dispatch order : order(TEA)
+Dispatch teaReady: orderReady(TEA, TABLE)
+Dispatch makeTea: preapare(TEA, TABLE)
+Dispatch orderDelivered: orderDelivered(OK)
+
+Dispatch dirtyTable: dirtyTable(OK)
+// CONTEXT
+Context ctxwaiter ip [host="localhost" port=8020]  
+Context ctxclient ip [host="127.0.0.1" port=8030]
+
+//CODEDQACTOR
+ExternalQActor client context ctxclient
+ExternalQActor barman context ctxwaiter
+
+//ACTOR
+
+QActor waiter context ctxwaiter{
+	// Variabili
+
+	// Stato iniziale
+	State s0 initial{
+		println("---waiter | START")
+		
+		discardMsg Off
+	}
+	Goto wait
+	
+	State wait{
+		println("---waiter | WAIT")		
+		// aspetto per un messaggio
+		
+		// if c'è un cliente in attesa e c'è un tavolo libero e pulito
+		forward waiter -m clientReady: clientReady(id)
+		
+		// if c'è un tavolo sporco
+		forward waiter -m dirtyTable: dirtyTable(table)
+	}
+	Transition t0 whenTimeVar Wait -> goHome
+			      // mettere timer per i tavoli
+						
+  				  whenMsg clientReady -> enter 
+				  whenMsg dirtyTable -> clean
+				  
+				  //whenRequest newClient -> client
+  				  whenMsg newClient -> client
+
+			      whenMsg order -> order
+			      whenMsg teaReady -> serve
+			      whenMsg endCons -> collect
+			      
+
+			      
+			      
+	State client{
+		println("---waiter | CLIENT")	
+		// vado alla porta e da al client il messaggio di ok o di wait
+		// metto un cliente nella mia coda
+		
+		//if deve aspettare -> calcolo tempo massimo e glie lo do
+		
+		forward client -m newClientWait: newClientWait(time)
+		
+		//else gli dico che è ok
+		
+		forward client -m newClientOk: newClientOk("ok")
+	}
+	Goto wait
+	
+	State enter{
+		println("---waiter | ENTER")
+		// vado alla porta e prendo il client e lo faccio accomodare a un tavolo
+			
+		forward client -m atTable: atTable("ok")
+	}
+	Goto wait
+	
+	State order{
+		println("---waiter | ORDER")
+		// vado al tavolo che vuole ordinare e prendo l'ordine e lo consegno al barman
+		
+		forward barman -m makeTea: makeTea(tea, table)
+	}
+	Goto wait
+	
+	State serve{
+		println("---waiter | SERVE")
+		// vado dal barman per prendere l'ordine e lo porto al tavolo
+		
+		forward client -m orderDelivered: orderDelivered(OK)
+	}
+	Goto wait
+	
+	State collect{
+		println("---waiter | COLLECT")
+		// vado al tavolo per prendere il pagamento dal client
+		
+	}
+	Goto exit
+	
+	State exit{
+		println("---waiter | EXIT")
+		// accompagno il client all'uscita
+		
+		forward client -m paymentOK: paymentOK
+	}
+	Goto wait
+	
+	State clean{
+		println("---waiter | CLEAN")	
+		// pulisco il tavolo sporco
+			
+	}
+	Goto wait
+	
+	State goHome{
+		println("---waiter | GOHOME")
+		// torno alla home
+		
+	}
+	Goto wait
+}
