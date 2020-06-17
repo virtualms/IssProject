@@ -6,7 +6,7 @@ mqttBroker "localhost": 1833 eventTopic "finalTask/waiter"
 // DISPATCH REQUEST/REPLY AND EVENT
 
 
-Dispatch newClient : newClient(ID)
+Event newClient : newClient(ID)
 Dispatch newClientWait : newClientWait(TIME)
 Dispatch newClientOk: newClientOk(OK)
 
@@ -49,10 +49,10 @@ QActor waiter context ctxwaiter{
 		println("---waiter | WAIT")		
 		// aspetto per un messaggio
 		
-		// if c'è un cliente in attesa e c'è un tavolo libero e pulito
+		// if c'Ã¨ un cliente in attesa e c'Ã¨ un tavolo libero e pulito
 		forward waiter -m clientReady: clientReady(id)
 		
-		// if c'è un tavolo sporco
+		// if c'Ã¨ un tavolo sporco
 		forward waiter -m dirtyTable: dirtyTable(table)
 	}
 	Transition t0 whenTimeVar Wait -> goHome
@@ -62,7 +62,7 @@ QActor waiter context ctxwaiter{
 				  whenMsg dirtyTable -> clean
 				  
 				  //whenRequest newClient -> client
-  				  whenMsg newClient -> client
+  				  whenEvent newClient -> client
 
 			      whenMsg order -> order
 			      whenMsg teaReady -> serve
@@ -80,7 +80,7 @@ QActor waiter context ctxwaiter{
 		
 		forward client -m newClientWait: newClientWait(time)
 		
-		//else gli dico che è ok
+		//else gli dico che Ã¨ ok
 		
 		forward client -m newClientOk: newClientOk("ok")
 	}
