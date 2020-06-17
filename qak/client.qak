@@ -3,7 +3,7 @@ System client
 //mqttBroker "localhost" : 1883 eventTopic "unibo/client"
 
 //MESSAGES
-Request clientInHall : order(temp)
+Request clientInHall : clientInHall(msg)
 Reply tempNo : tempNo(val)
 Reply tempOk : tempOk(ID)
 
@@ -44,6 +44,8 @@ QActor client context ctxclient{
 			//ricevo l'id
 			//onmsg id=payload
 			println("client | waiting for waiter")
+			
+			//request smartbell -m clientInHall(msg)
 		}
 		Transition t1
 			whenMsg accept -> ordering
@@ -51,8 +53,7 @@ QActor client context ctxclient{
 			
 		
 		State waitingInHall{
-			//ricevo il delaymax, notifico la mia presenza al waiter e mi viene risposto con il
-			//maxwait time
+			//ricevo il delaymax, 
 			//onmsg delayMax=payload
 			println("client | waiting in hall")
 		}
@@ -69,14 +70,14 @@ QActor client context ctxclient{
 		
 		
 		State waitingInTable{
-			//aspetto finchè non mi arriva il te'
+			//aspetto finchÃ¨ non mi arriva il te'
 			println("client | waitingInTable")
 		}
 		Transition t3 
 			whenMsg orderDelivered -> consuming
 		
 		State consuming{
-			//consumo il tè e notifico con un evento che ho finito
+			//consumo il tÃ¨ e notifico con un evento che ho finito
 			//oppure vengo esortato dal waiter ad andarmene se tempo>tmax
 			
 			println("client | consuming")
