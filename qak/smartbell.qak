@@ -7,6 +7,8 @@ Request clientInHall : order(temp)
 Reply tempOk : tempOk(id)
 Reply tempNo : tempOk(msg)
 
+Event newClient : newClient(id)
+
 //CONTEXT
 Context ctxsmartbell ip [host="localhost" port=8020]
 
@@ -26,8 +28,11 @@ QActor smartbell context ctxsmartbell{
 	State check{
 		//temp
 		//if [# temp > 37.5 #] replyTo request with tempNo("value too high")
-		//else generate id; replyTo request with tempOk(id)
+		//else generate id; 
+		//	replyTo request with tempOk(id); 
+		//	emit newClient : newClient(id)
 		println("smartbell | check")
+		
 	} 
 	Goto waiting
 }
