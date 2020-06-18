@@ -18,9 +18,11 @@ Dispatch clientReady : clientReady(OK)
 Dispatch endCons: endCons(OK)
 Dispatch paymentOK: paymentOK(OK)
 
-Dispatch order : order(TEA)
+Dispatch waiterReady: waiterReady(OK)
+Dispatch callWaiter : callWaiter(OK)
+Dispatch order: order(TEA)
 Dispatch teaReady: orderReady(TEA, TABLE)
-Dispatch makeTea: preapare(TEA, TABLE)
+Dispatch makeTea: makeTea(TEA, TABLE)
 Dispatch orderDelivered: orderDelivered(OK)
 
 Dispatch dirtyTable: dirtyTable(OK)
@@ -31,6 +33,7 @@ Context ctxclient ip [host="127.0.0.1" port=8030]
 //CODEDQACTOR
 ExternalQActor client context ctxclient
 ExternalQActor barman context ctxwaiter
+ExternalQActor smartbell context ctxwaiter
 
 //ACTOR
 
@@ -61,10 +64,9 @@ QActor waiter context ctxwaiter{
   				  whenMsg clientReady -> enter 
 				  whenMsg dirtyTable -> clean
 				  
-				  //whenRequest newClient -> client
   				  whenEvent newClient -> client
 
-			      whenMsg order -> order
+			      whenMsg callWaiter -> getOrder
 			      whenMsg teaReady -> serve
 			      whenMsg endCons -> collect
 			      
@@ -73,16 +75,16 @@ QActor waiter context ctxwaiter{
 			      
 	State client{
 		println("---waiter | CLIENT")	
-		// vado alla porta e da al client il messaggio di ok o di wait
+		// comunico con lo smart bell dicendogli se il cliente deve aspettare o se è ok
 		// metto un cliente nella mia coda
 		
 		//if deve aspettare -> calcolo tempo massimo e glie lo do
 		
-		forward client -m newClientWait: newClientWait(time)
+		forward smartbell -m newClientWait: newClientWait(time)
 		
 		//else gli dico che è ok
 		
-		forward client -m newClientOk: newClientOk("ok")
+		forward smartbell -m newClientOk: newClientOk("ok")
 	}
 	Goto wait
 	
@@ -94,11 +96,18 @@ QActor waiter context ctxwaiter{
 	}
 	Goto wait
 	
-	State order{
-		println("---waiter | ORDER")
-		// vado al tavolo che vuole ordinare e prendo l'ordine e lo consegno al barman
-		
+	State getOrder{
+		println("---waiter | GETORDER")
+		// vado al tavolo che vuole ordinare 
+		forward client -m waiterReady: waiterReady(OK)
+	}
+	Transition t1 whenMsg order -> sendOrder
+	
+	State sendOrder{
+	// invio l'ordine al barman
+		println("---waiter | SENDORDER")
 		forward barman -m makeTea: makeTea(tea, table)
+	
 	}
 	Goto wait
 	
