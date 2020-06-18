@@ -5,7 +5,7 @@ System smartbell
 //MESSAGES
 Request clientInHall : order(temp)
 Reply tempOk : tempOk(id)
-Reply tempNo : tempOk(msg)
+Reply tempNo : tempNo(msg)
 
 Event newClient : newClient(id)
 
