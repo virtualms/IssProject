@@ -14,6 +14,7 @@ Dispatch newClientWait : newClientWait(del)
 
 Dispatch atTable : table(table)
 Dispatch callWaiter : callWaiter(msg)
+Dispatch waiterReady : waiterReady(msg)
 
 Request order : order(tea)
 Reply orderGot : orderGot(tea)
