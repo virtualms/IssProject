@@ -23,12 +23,6 @@ Dispatch endCons : endCons(cons)
 
 Dispatch paymentOk : paymentOk(bill)
 
-/*
- * 
- * Dove inserire il messaggio atTable? E' relamente necessario?
- * 
- */
-
 
 //CONTEXT
 Context ctxclient ip [host="localhost" port=8020]
