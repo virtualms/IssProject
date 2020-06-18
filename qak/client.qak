@@ -12,6 +12,8 @@ Reply tempOk : tempOk(ID)
 Dispatch newClientOk : newClientOk(table)
 Dispatch newClientWait : newClientWait(del)
 
+Dispatch atTable : table(table)
+
 Request order : order(te)
 Reply orderGot : orderGot(te)
 Dispatch orderDelivered : orderDelivered(te)
@@ -57,7 +59,7 @@ QActor client context ctxclient{
 			//request smartbell -m clientInHall(msg)
 		}
 		Transition t1
-			whenMsg newClientOk -> ordering
+			whenMsg newClientOk -> waitingInHall
 			whenMsg newClientWait -> waitingInHall
 			
 		
@@ -67,7 +69,7 @@ QActor client context ctxclient{
 			println("client | waiting in hall")
 		}
 		Transition t2
-			whenMsg newClientOk -> ordering
+			whenMsg atTable -> ordering
 		
 		State ordering{
 			//faccio l'ordine? piu' te' da scegliere?
