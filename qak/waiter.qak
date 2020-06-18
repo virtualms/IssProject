@@ -6,9 +6,8 @@ mqttBroker "localhost": 1833 eventTopic "finalTask/waiter"
 // DISPATCH REQUEST/REPLY AND EVENT
 
 
-Event newClient : newClient(ID)
-Dispatch newClientWait : newClientWait(TIME)
-Dispatch newClientOk: newClientOk(OK)
+Request newClient : newClient(ID)
+Reply newClientWait : newClientWait(TIME)
 
 Dispatch atTable: atTable(OK)
 
@@ -64,7 +63,7 @@ QActor waiter context ctxwaiter{
   				  whenMsg clientReady -> enter 
 				  whenMsg dirtyTable -> clean
 				  
-  				  whenEvent newClient -> client
+  				  whenRequest newClient -> client
 
 			      whenMsg callWaiter -> getOrder
 			      whenMsg teaReady -> serve
@@ -78,13 +77,9 @@ QActor waiter context ctxwaiter{
 		// comunico con lo smart bell dicendogli se il cliente deve aspettare o se è ok
 		// metto un cliente nella mia coda
 		
-		//if deve aspettare -> calcolo tempo massimo e glie lo do
-		
-		forward smartbell -m newClientWait: newClientWait(time)
-		
-		//else gli dico che è ok
-		
-		forward smartbell -m newClientOk: newClientOk("ok")
+		//if deve aspettare -> calcolo tempo massimo e glie lo do oppure gli dico tempo di attesa 0
+		replyTo newClient with newClientWait: newClientWait(time)
+
 	}
 	Goto wait
 	
