@@ -4,6 +4,8 @@ System smartbell
 
 //MESSAGES
 Request clientInHall : order(temp)
+Request newClient : newClient()
+Reply newClientWait : newClientWait(TIME)
 Reply tempOk : tempOk(id)
 Reply tempNo : tempNo(msg)
 
@@ -30,11 +32,18 @@ QActor smartbell context ctxsmartbell{
 		//if [# temp > 37.5 #] replyTo request with tempNo("value too high")
 		//else generate id; 
 		//	replyTo request with tempOk(id); 
-		//	emit newClient : newClient(id)
+		//	request waiter -m newClient : newClient(id)
 		println("smartbell | check")
 		
 	} 
+	Transition t1 
+		whenReply newClientWait -> sendTime
+		
+	State sendTime{
+		//forward client -m mostraTempoAttesa
+	}
 	Goto waiting
+	
 }
 	
 
