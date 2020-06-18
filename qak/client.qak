@@ -13,10 +13,11 @@ Dispatch newClientOk : newClientOk(table)
 Dispatch newClientWait : newClientWait(del)
 
 Dispatch atTable : table(table)
+Dispatch callWaiter : callWaiter(msg)
 
-Request order : order(te)
-Reply orderGot : orderGot(te)
-Dispatch orderDelivered : orderDelivered(te)
+Request order : order(tea)
+Reply orderGot : orderGot(tea)
+Dispatch orderDelivered : orderDelivered(tea)
 
 Dispatch teafinished : teafinished(arg)
 Dispatch endCons : endCons(cons)
@@ -63,16 +64,18 @@ QActor client context ctxclient{
 			println("client | waiting in hall")
 		}
 		Transition t2
-			whenMsg atTable -> ordering
+			whenMsg atTable -> waitingForOrdering
 		
-		State ordering{
-			//faccio l'ordine? piu' te' da scegliere?
-			//mando una request al waiter?
-			
-			//request (?) waiter -m order : order(te)
+		State waitingForOrdering{
+			//forward waiter -m callWaiter : callWaiter(msg)
 		}
 		Transition t3 
-			whenReply orderGot -> waitingInTable //oppure transizione quando ricevo ok dell'ordine?
+			whenMsg waiterReady -> ordering
+			
+		State ordering{
+			forward waiter -m order : order(tea/*,table*/)
+		}
+		Goto waitingInTable //oppure transizione quando ricevo ok dell'ordine?
 		
 		
 		State waitingInTable{
