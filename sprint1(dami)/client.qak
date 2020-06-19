@@ -1,0 +1,124 @@
+System client
+
+//mqttBroker "localhost": 1833 eventTopic "unibo/polar"
+
+//MESSAGES
+//client-smartbell
+Request clientInHall : clientInHall(msg)
+Reply tempNo : tempNo(val)
+Reply tempOk : tempOk(ID)
+
+//waiter-client
+Dispatch newClientOk : newClientOk(table)
+Dispatch newClientWait : newClientWait(del)
+
+Dispatch atTable : table(table)
+Dispatch callWaiter : callWaiter(msg)
+Dispatch waiterReady : waiterReady(msg)
+
+Request order : order(tea)
+Reply orderGot : orderGot(tea)
+Dispatch orderDelivered : orderDelivered(tea)
+
+Dispatch teafinished : teafinished(arg)
+Dispatch endCons : endCons(cons)
+
+Dispatch paymentOk : paymentOk(bill)
+
+Dispatch clientWait: clientWait(TIME)
+
+
+//CONTEXT
+Context ctxclient ip [host="localhost" port=8040]
+//Context ctxsmartbell ip [host="127.0.0.1" port=8050]
+Context ctxwaiter ip [host="127.0.0.1" port=8090] 
+
+ExternalQActor waiter context ctxwaiter
+ExternalQActor smartbell context ctxwaiter
+
+//ACTOR
+QActor client context ctxclient{
+	
+	[# var Temp = 37#]
+		State s0 initial{
+			println("client | s0")
+			//init temp=random 
+			delay 2000
+		}
+		Goto checkTemp
+		
+		State checkTemp{
+			println("client | checkTemp")
+			//temperatura controllata tramite smartbell (messaggio a smartbell)
+			//ok ricevo id, altrimenti fuori dal sistema
+			delay 2000
+			request smartbell -m clientInHall: clientInHall($Temp)
+		}
+		Transition t0 
+			whenReply tempNo -> end
+			whenReply tempOk -> waitingForWaiter
+			
+		State waitingForWaiter{
+			//ricevo l'id
+			//onmsg id=payload
+			delay 2000
+			println("client | waiting for waiter")
+			
+			//request smartbell -m clientInHall(msg)
+		}
+		Transition t1
+			whenMsg clientWait -> waitingInHall
+			
+		
+		State waitingInHall{
+			//ricevo il delaymax, 
+			//onmsg delayMax=payload
+			delay 2000
+			println("client | waiting in hall")
+		}
+		Transition t2
+			whenMsg atTable -> waitingForOrdering
+		
+		State waitingForOrdering{
+			//forward waiter -m callWaiter : callWaiter(msg)
+					delay 2000
+		}
+		Transition t3 
+			whenMsg waiterReady -> ordering
+			
+		State ordering{
+						delay 2000
+			request waiter -m order: order(tea)
+		}
+		Goto waitingInTable //oppure transizione quando ricevo ok dell'ordine?
+		
+		
+		State waitingInTable{
+						delay 2000
+			//aspetto finchè non mi arriva il te'
+			println("client | waitingInTable")
+		}
+		Transition t4 
+			whenMsg orderDelivered -> consuming
+		
+		State consuming{
+						delay 2000
+			//consumo il tè e notifico con un evento che ho finito
+			//oppure vengo esortato dal waiter ad andarmene se tempo>tmax
+			
+			println("client | consuming")
+		}
+		Transition t5 whenMsg endCons -> paying
+		
+		State paying{
+						delay 2000
+			//pago e vengo accompagnato all'uscita dal waiter
+		}
+		Transition t6
+			whenMsg paymentOk ->  end
+		
+		State end{
+			terminate 0
+		}
+			
+}
