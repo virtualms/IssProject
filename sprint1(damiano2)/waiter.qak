@@ -1,0 +1,276 @@
+System waiter
+
+// BROKER
+mqttBroker "127.0.0.1": 1833 eventTopic "unibo/polar"
+
+// DISPATCH REQUEST/REPLY AND EVENT
+//Request newClient : newClient(ID)
+Event newClient : newClient(ID)
+//Reply newClientWait : newClientWait(TIME)
+Event newClientWait : newClientWait(TIME)
+
+//Dispatch atTable: atTable(OK)
+Event atTable: atTable(OK)
+
+Dispatch clientReady : clientReady(OK)
+
+//Dispatch endCons: endCons(OK)
+Event endCons: endCons(OK)
+//Dispatch paymentOK: paymentOK(OK)
+Event paymentOK: paymentOK(OK)
+
+//Dispatch waiterReady: waiterReady(OK)
+Event waiterReady: waiterReady(OK)
+Dispatch callWaiter : callWaiter(OK)
+//Dispatch order: order(TEA)
+Event order: order(TEA)
+//Dispatch teaReady: orderReady(TEA, TABLE)
+//Dispatch makeTea: makeTea(TEA, TABLE)
+//Dispatch orderDelivered: orderDelivered(OK)
+Event orderDelivered: orderDelivered(OK)
+
+Event teaReady: orderReady(TEA, TABLE)
+Event makeTea: makeTea(TEA, TABLE)
+
+Dispatch dirtyTable: dirtyTable(OK)
+
+//MOVIMENTO (Potrebbero essere condensati in un solo messaggio con argomento la destinazione)
+Request moveToEntrance : moveToEntrance(ARG)
+Request moveToTable1 : moveToTable1(ARG)
+Request moveToTable2 : moveToTable2(ARG)
+Request moveToBarman : moveToBarman(ARG)
+Request moveToExit : moveToExit(ARG)
+Request moveToHome : moveToHome(ARG)
+
+Reply moveOk : moveOk(ARG)
+
+
+
+// CONTEXT
+Context ctxwaiter ip [host="localhost" port=8090]  
+//Context ctxclient ip [host="127.0.0.1" port=8040]
+//Context ctxbarman ip [host="127.0.0.1" port=8060]
+//Context ctxsmartbell ip [host="192.168.1.4" port=8050]
+//Context ctxtearoom_dummy  ip [host="127.0.0.1" port=8030]  
+Context ctxwalker ip [host="127.0.0.1" port=8070]     
+
+//CODEDQACTOR
+//ExternalQActor client context ctxclient
+//ExternalQActor barman context ctxwaiter
+//ExternalQActor smartbell context ctxsmartbell
+
+ExternalQActor walker context ctxwalker
+
+//ACTOR
+
+QActor waiter context ctxwaiter{
+	// Variabili
+	[#
+		var ARG = ""
+		var WaitValue = 500L
+		var MaxTime = 2000L
+		var dirtyTable = 0
+		#]
+
+	// Stato iniziale
+	State s0 initial{
+		println("---waiter | START")
+		request walker -m moveToExit : EXIT
+		discardMsg Off
+	}
+	Transition t0 whenReply  moveOk -> wait
+	//Goto wait
+	
+	State wait{
+		println("---waiter | WAIT")		
+		// aspetto per un messaggio
+		
+		// if c'Ã¨ un cliente in attesa e c'Ã¨ un tavolo libero e pulito
+		//forward waiter -m clientReady: clientReady(id)
+		
+		if[# dirtyTable != 0 #] {
+			forward waiter -m dirtyTable: dirtyTable(1)
+		}
+	}
+	Transition t0 whenTimeVar WaitValue -> goHome
+			      // mettere timer per i tavoli
+						
+  				 // whenMsg clientReady -> enter 
+				  whenMsg dirtyTable -> clean
+				  
+  				  //whenRequest newClient -> client
+  				  whenEvent newClient -> client
+			      
+			      whenMsg callWaiter -> getOrder
+			      //whenMsg teaReady -> serve
+  			      whenEvent teaReady -> serve
+  			      //whenMsg endCons -> collect
+			      whenEvent endCons -> collect
+			      
+
+			      
+			      
+	State client{
+		
+		onMsg(newClient : newClient(ID)){
+			
+			[# 
+				ARG = payloadArg(0)
+			 #]
+			
+			println("---waiter | NUOVO CLIENTE CON ID: $ARG (ma questo id come lo uso??)")	
+		// comunico con lo smart bell dicendogli se il cliente deve aspettare o se Ã¨ ok
+		// metto un cliente nella mia coda
+		
+		//if deve aspettare -> calcolo tempo massimo e glie lo do oppure gli dico tempo di attesa 0
+		//replyTo newClient with newClientWait : newClientWait(time)
+
+		//Assumendo che ci sia un solo cliente
+		//replyTo newClient with newClientWait : newClientWait(0)
+		emit newClientWait : newClientWait(0)
+		}
+	}
+	//vado in enter perchè c'è solo un client
+	Goto enter
+	
+	State enter{
+		println("---waiter | faccio entrare il cliente e lo accompagno al tavolo")
+		// vado alla porta e prendo il client e lo faccio accomodare a un tavolo
+		
+		request walker -m moveToEntrance : ENTRANCE
+			
+		
+	}
+	Transition t0
+		whenReply moveOk -> atEntrance
+		
+	State atEntrance{
+		request walker -m moveToTable1 : TAVOLO1
+	} Transition t0
+		whenReply moveOk -> atTableFromEntrance
+		
+	State atTableFromEntrance{
+		println("---waiter | siamo al tavolo tavolo")
+		//forward client -m atTable: atTable(ok)
+		emit atTable: atTable(ok)
+		
+	}
+	Goto wait 
+	
+	State getOrder{
+		println("---waiter | sto andando a prendere l'ordine")
+		// vado al tavolo che vuole ordinare 
+		request walker -m moveToTable1 : TAVOLO1
+		
+	}
+	Transition t1 whenReply moveOk -> waitingOrder
+	
+	State waitingOrder{
+		println("---waiter | sono al tavolo pronto a prendere l'ordine")
+		
+		//forward client -m waiterReady: waiterReady(OK)
+		emit waiterReady: waiterReady(OK)
+		
+	}
+	Transition t1 
+		//whenMsg order -> sendOrder
+		whenEvent order -> sendOrder
+	
+	State sendOrder{
+	// invio l'ordine al barman
+	
+	onMsg(order: order(TEA)){
+			
+			[# 
+				ARG = payloadArg(0)
+			 #]
+			 
+			println("---waiter | invio l'ordine del $ARG al barista")
+			//forward barman -m makeTea: makeTea($ARG, 1)
+			emit makeTea: makeTea($ARG, 1)
+			 }
+	
+	}
+	Goto wait
+	
+	State serve{
+		println("---waiter | vado a prendere l'ordine dal barista")
+		// vado dal barman per prendere l'ordine e lo porto al tavolo
+		request walker -m moveToBarman : BARMAN
+		
+	}
+	Transition t0 
+			whenReply moveOk -> atBarman
+			
+	
+	State atBarman{
+		request walker -m moveToTable1 : TAVOLO1
+	} Transition t0
+		whenReply moveOk -> atTableFromBarman
+		
+	State atTableFromBarman{
+		println("---waiter | ordine portato al tavolo")
+		//forward client -m orderDelivered: orderDelivered(OK)
+		emit orderDelivered: orderDelivered(OK)
+		
+	}Goto endOrder
+	
+	State endOrder {
+		
+	} Transition t0 whenTimeVar MaxTime -> askToCollect
+					//whenMsg endCons -> collect
+					whenEvent endCons -> collect
+		
+	State askToCollect{
+		println("---waiter | chiedo al client di andare via")
+		//request walker -m moveToTable1 : TAVOLO1
+		//forward client -m endCons : VAATTTTTTENNN	
+		emit endCons : VAATTTTTTENNN		
+	}
+	Goto collect		
+	
+	State collect{
+		println("---waiter | COLLECT")
+		// vado al tavolo per prendere il pagamento dal client
+		request walker -m moveToTable1 : TAVOLO1
+		
+		[#
+			dirtyTable = dirtyTable + 1 
+			#]
+		
+	}
+	Goto exit
+	
+	State exit{
+		
+		println("---waiter | EXIT")
+		// accompagno il client all'uscita
+		request walker -m moveToExit : EXIT
+	}
+	Transition t0 whenReply moveOk -> endExit
+	
+	State endExit{
+		println("---waiter | dico addio al cliente")
+		// accompagno il client all'uscita
+		//forward client -m paymentOK: paymentOK
+		emit paymentOK: paymentOK
+		
+	}
+	Goto wait
+	
+	State clean{
+		println("---waiter | pulisco il tavolo")	
+		delay 1000
+		[#
+			dirtyTable = dirtyTable - 1
+		#]
+			
+	}
+	Goto wait
+	
+	State goHome{
+		println("---waiter | GOHOME")
+		request walker -m moveToHome : HOME
+	}
+	Goto wait
+}
