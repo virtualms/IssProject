@@ -1,0 +1,140 @@
+System walker
+
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+//del professore
+Request  movetoCell : movetoCell(X,Y)
+Reply    atcell     : atcell(X,Y)
+Reply	 walkbreak  : walkbreak(X,Y) 
+
+//definiti da me (meglio condensarli, ma per ora dovrebbero funzionare anche così)
+Request moveToEntrance : moveToEntrance(ARG)
+Request moveToTable1 : moveToTable1(ARG)
+Request moveToTable2 : moveToTable2(ARG)
+Request moveToBarman : moveToBarman(ARG)
+Request moveToExit : moveToExit(ARG)
+Request moveToHome : moveToHome(ARG)
+
+Reply moveOk : moveOk(ARG)
+
+Context ctxwalker ip [host="127.0.0.1" port=8070]     
+//Context ctxwaiter ip [host="localhost" port=8090] 
+Context ctxtearoom_dummy  ip [host="localhost" port=8030]     
+
+ExternalQActor waiterwalker context ctxtearoom_dummy
+
+QActor walker context ctxwalker{
+	
+	[#
+		var X_home		= "0"
+		var Y_home		= "0"
+		
+		var X_barman		= "5"
+		var Y_barman		= "0"
+
+		var X_entrancedoor  = "0"
+		var Y_entrancedoor  = "4"
+	
+		var X_exitdoor      = "5"
+		var Y_exitdoor      = "4"
+ 
+		var X_teatable1     = "2"
+		var Y_teatable1     = "2"
+
+		var X_teatable2     = "4"
+		var Y_teatable2     = "2"	
+	#]
+	
+	State s0 initial{
+		println("---walker | s0")	
+	} Goto wait
+	
+	State wait{
+		println("---walker | wait")	
+	}
+	Transition t0
+  				  whenRequest moveToEntrance -> moveToEntrance
+  				  whenRequest moveToTable1 -> moveToTable1
+  				  whenRequest moveToTable2 -> moveToTable2 
+				  whenRequest moveToBarman -> moveToBarman 
+				  whenRequest moveToExit -> moveToExit
+				  whenRequest moveToHome -> moveToHome 
+				  
+	State moveToEntrance {
+		println("---walker | moveToEntrace")	
+		request waiterwalker -m movetoCell : movetoCell ($X_entrancedoor, $Y_entrancedoor)	
+	} Transition t0 whenReply atcell -> respondEntrance
+	
+	State respondEntrance {
+		println("---walker | respondEntrance")	
+		replyTo moveToEntrance with moveOk : OK
+	} Goto wait
+		
+	
+	
+	
+	State moveToTable1 {
+		println("---walker | moveToTable1")	
+		request waiterwalker -m movetoCell : movetoCell ($X_teatable1, $Y_teatable1)	
+	} Transition t0 whenReply atcell -> respondTeaTable1
+	
+	State respondTeaTable1 {
+		println("---walker | respondTeaTable1")	
+		replyTo moveToTable1 with moveOk : OK
+	} Goto wait	
+	
+	
+	
+	
+	State moveToTable2 {
+		println("---walker | moveToTable2")	
+		request waiterwalker -m movetoCell : movetoCell ($X_teatable2, $Y_teatable2)	
+	} Transition t0 whenReply atcell -> respondTeaTable2
+	
+	State respondTeaTable2 {
+		println("---walker | respondTeaTable2")	
+		replyTo moveToTable2 with moveOk : OK
+	} Goto wait	
+	
+	
+	
+	
+	State moveToBarman {
+		println("---walker | moveToBarman")	
+		request waiterwalker -m movetoCell : movetoCell ($X_barman, $Y_barman)	
+	} Transition t0 whenReply atcell -> respondBarman
+	
+	State respondBarman {
+		println("---walker | respondBarman")	
+		replyTo moveToBarman with moveOk : OK
+	} Goto wait	
+	
+	
+	
+	
+	State moveToExit{
+		println("---walker | moveToExit")	
+		request waiterwalker -m movetoCell : movetoCell ($X_exitdoor, $Y_exitdoor)	
+	} Transition t0 whenReply atcell -> respondExit
+	
+	State respondExit {
+		println("---walker | respondExit")	
+		replyTo moveToExit with moveOk : OK
+	} Goto wait
+	
+	
+	
+	
+	State moveToHome{
+		println("---walker | moveToHome")	
+		request waiterwalker -m movetoCell : movetoCell ($X_home, $Y_home)	
+	} Transition t0 whenReply atcell -> respondHome
+	
+	State respondHome{
+		println("---walker | respondHome")	
+		replyTo moveToHome with moveOk : OK
+	} Goto wait
+	
+	
+	
+}
