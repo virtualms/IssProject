@@ -12,18 +12,26 @@ Reply tempOk : tempOk(ID)
 Dispatch newClientOk : newClientOk(table)
 Dispatch newClientWait : newClientWait(del)
 
-Dispatch atTable : table(table)
+//Dispatch atTable : table(table)
+Event atTable : table(table)
 Dispatch callWaiter : callWaiter(msg)
-Dispatch waiterReady : waiterReady(msg)
+//Dispatch waiterReady : waiterReady(msg)
+Event waiterReady : waiterReady(msg)
 
-Request order : order(tea)
-Reply orderGot : orderGot(tea)
-Dispatch orderDelivered : orderDelivered(tea)
 
-Dispatch teafinished : teafinished(arg)
-Dispatch endCons : endCons(cons)
+//transform in dispatch...
+Event order : order(tea)
+//Dispatch orderDelivered : orderDelivered(tea)
+Event orderDelivered : orderDelivered(tea)
 
-Dispatch paymentOk : paymentOk(bill)
+Event teafinished : teafinished(arg)
+//Dispatch endCons : endCons(cons)
+Event endCons : endCons(cons)
+
+//Dispatch paymentOk : paymentOk(bill)
+Event paymentOk : paymentOk(bill)
+
+Dispatch clientWait: clientWait(TIME)
 
 
 //CONTEXT
