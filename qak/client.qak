@@ -32,6 +32,7 @@ Context ctxclient ip [host="localhost" port=8020]
 //ACTOR
 QActor client context ctxclient{
 	
+		[# var Temp #]
 		State s0 initial{
 			println("client | s0")
 			//init temp=random [36-37.5]
@@ -41,7 +42,7 @@ QActor client context ctxclient{
 		State checkTemp{
 			//temperatura controllata tramite smartbell (messaggio a smartbell)
 			//ok? ricevo id, altrimenti fuori dal sistema
-			//request smartbell -m clientInHall(temp)
+			request smartbell -m clientInHall: clientInHall($Temp)
 		}
 		Transition t0 
 			whenReply tempNo -> end
@@ -51,11 +52,8 @@ QActor client context ctxclient{
 			//ricevo l'id
 			//onmsg id=payload
 			println("client | waiting for waiter")
-			
-			//request smartbell -m clientInHall(msg)
 		}
 		Transition t1
-			whenMsg newClientOk -> waitingInHall
 			whenMsg newClientWait -> waitingInHall
 			
 		
@@ -65,7 +63,7 @@ QActor client context ctxclient{
 			println("client | waiting in hall")
 		}
 		Transition t2
-			whenMsg atTable -> waitingForOrdering
+			whenEvent atTable -> waitingForOrdering
 		
 		State waitingForOrdering{
 			//forward waiter -m callWaiter : callWaiter(msg)
@@ -74,9 +72,10 @@ QActor client context ctxclient{
 			whenMsg waiterReady -> ordering
 			
 		State ordering{
-			forward waiter -m order : order(tea/*,table*/)
+			//forward waiter -m order : order(tea)
+			emit order: order(tea) ????
 		}
-		Goto waitingInTable //oppure transizione quando ricevo ok dell'ordine?
+		Goto waitingInTable
 		
 		
 		State waitingInTable{
@@ -85,6 +84,7 @@ QActor client context ctxclient{
 		}
 		Transition t4 
 			whenMsg orderDelivered -> consuming
+			//whenEvent orderDelivered -> consuming ???????????
 		
 		State consuming{
 			//consumo il tè e notifico con un evento che ho finito
@@ -92,13 +92,16 @@ QActor client context ctxclient{
 			
 			println("client | consuming")
 		}
-		Transition t5 whenMsg endCons -> paying
+		Transition t5 
+			//whenMsg endCons -> paying ??????
+			whenMsg endCons -> paying
 		
 		State paying{
 			//pago e vengo accompagnato all'uscita dal waiter
 		}
 		Transition t6
 			whenMsg paymentOk ->  end
+			//whenEvent paymentOk -> end ????
 		
 		State end{
 			terminate 0
