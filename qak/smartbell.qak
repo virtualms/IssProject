@@ -2,12 +2,17 @@ System smartbell
 
 //mqttBroker "localhost" : 1883 eventTopic "a/topic"
 
+
 //MESSAGES
 Request clientInHall : order(temp)
-Request newClient : newClient()
-Reply newClientWait : newClientWait(TIME)
+//Request newClient : newClient(OK)
+Event newClient : newClient(OK)
+//Reply newClientWait : newClientWait(TIME)
+Event newClientWait : newClientWait(TIME)
 Reply tempOk : tempOk(id)
 Reply tempNo : tempNo(msg)
+
+Dispatch clientWait: clientWait(TIME)
 
 Event newClient : newClient(id)
 
@@ -31,8 +36,10 @@ QActor smartbell context ctxsmartbell{
 		//temp
 		//if [# temp > 37.5 #] replyTo request with tempNo("value too high")
 		//else generate id; 
-		//	replyTo request with tempOk(id); 
-		//	request waiter -m newClient : newClient(id)
+		replyTo clientInHall with tempOk: tempOk(temp)
+		//request waiter -m newClient : newClient(id)
+		emit newClient : newClient(id)
+		
 		println("smartbell | check")
 		
 	} 
@@ -40,7 +47,7 @@ QActor smartbell context ctxsmartbell{
 		whenReply newClientWait -> sendTime
 		
 	State sendTime{
-		//forward client -m mostraTempoAttesa
+		forward client -m clientWait: clientWait(time)
 	}
 	Goto waiting
 	
