@@ -1,37 +1,36 @@
-System tearoom
+System barman
 
-mqttBroker "localhost" : 1883 eventTopic "tearoom/barman"  
+//mqttBroker "localhost": 1883 eventTopic "unibo/polar" 
 
-Dispatch makeTea : makeTea( TEA )
-
+//MESSAGES
+Event makeTea : makeTea( TEA, TABLE )
 Event teaReady : teaReady( ARG )
 
-Context ctxtearoom ip [ host="localhost" port=9999]
+Context ctxbarman ip [ host="localhost" port=8060]
 
-QActor barman context ctxtearoom {
+//ExternalQActor waiter context ctxwaiter
+//nell'ottica di utilizzare dei dispatch, ma sorge il problema che waiter e barman si debbano conoscere
+
+QActor barman context ctxbarman {
 	
 	State s0 initial {
 		
 		println("Barman		| starts")
-		
+	
 	}
 	Goto waiting
 	
 	State waiting{
 		println("Barman		| waiting")
 	}
-	Transition t0 whenMsg makeTea -> makingTea
+	Transition t0 whenEvent makeTea -> makingTea
 	
 	State makingTea {
-		onMsg(makeTea : TEA){	//COME SI USA STA COSA
-		
-			println("Barman 	| making tea $TEA")
-			
-			emit teaReady : TEA
-			
+		delay 4000
+		onMsg(makeTea : makeTea(TEA, TABLE)){
+			println("Barman 	| making tea")
+			emit teaReady : teaReady(TEA)	
 		}
 	}
 	Goto waiting
 }
-
-
