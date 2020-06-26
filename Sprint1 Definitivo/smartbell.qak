@@ -123,7 +123,7 @@ QActor client context ctxsmartbell{
 		State waitingInTable{
 			println("client | waitingInTable")
 			delay 2000
-			//aspetto finchè non mi arriva il te'
+			//aspetto finchÃ¨ non mi arriva il te'
 		}
 		Transition t4 
 			whenMsg orderDelivered -> consuming
@@ -131,7 +131,7 @@ QActor client context ctxsmartbell{
 		State consuming{
 			println("client | consuming")
 			delay 10000
-			//consumo il tè e notifico con un evento che ho finito
+			//consumo il tÃ¨ e notifico con un evento che ho finito
 			//oppure vengo escortato dal waiter ad andarmene se tempo>tmax
 			emit endCons: endCons
 		}
