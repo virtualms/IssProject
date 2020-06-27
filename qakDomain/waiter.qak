@@ -193,13 +193,15 @@ QActor waiter context ctxwaiter{
 		#]
 		
 	}
-	Transition t0 whenReply moveOk -> exit
+	//Transition t0 whenReply moveOk -> exit
+	Goto exit
 	
 	State exit{
 		println("---waiter | exit")
 		// accompagno il client all'uscita
 	}
-	Transition t0 whenReply moveOk -> endExit
+	//Transition t0 whenReply moveOk -> endExit
+	Goto endExit
 	
 	State endExit{
 		println("---waiter | endExit")
@@ -218,7 +220,8 @@ QActor waiter context ctxwaiter{
 		#]
 			
 	}
-	Transition t0 whenReply moveOk -> wait
+	//Transition t0 whenReply moveOk -> wait
+	Goto wait
 	
 	State goHome{
 		println("---waiter | goHome")
