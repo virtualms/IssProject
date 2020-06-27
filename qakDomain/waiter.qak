@@ -89,13 +89,13 @@ QActor waiter context ctxwaiter{
 		forward smartbell -m newClientWait: newClientWait(0)
 		}
 	}
-	//vado in enter perchè c'è solo un client
+	//vado in enter perchÃ¨ c'Ã¨ solo un client
 	Goto enter
 	
 	State enter{
 		println("---waiter | enter")
 		// vado alla porta, prendo il client e lo faccio accomodare a un tavolo
-		// forward client -m atTable: atTable(ok), il cliente è al tavolo e può decidere cosa ordinare
+		// forward client -m atTable: atTable(ok), il cliente Ã¨ al tavolo e puÃ² decidere cosa ordinare
 	}
 //	Transition t0
 		Goto wait
@@ -161,13 +161,13 @@ QActor waiter context ctxwaiter{
 		//prendo l'ordine da barman
 	} 
 //	Transition t0 whenReply moveOk -> atTableFromBarman
-	Goto endOrder
+	Goto atTableFromBarman
 		
-//	State atTableFromBarman{
-//		println("---waiter | ordine portato al tavolo")
-//		forward client -m orderDelivered: orderDelivered(OK)
-//	}Goto endOrder
-//	
+	State atTableFromBarman{
+		println("---waiter | ordine portato al tavolo")
+		forward client -m orderDelivered: orderDelivered(OK)
+	}Goto endOrder
+	
 	State endOrder {
 	    println("---waiter | endOrder")
 	    //consegno l'ordine al client ed aspetto che finisca o che finisca
