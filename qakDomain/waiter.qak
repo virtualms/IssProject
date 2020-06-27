@@ -152,21 +152,21 @@ QActor waiter context ctxwaiter{
 		println("---waiter | serve")
 		// vado dal barman per prendere l'ordine e lo porto al tavolo
 	}
-	Transition t0 
-			whenReply moveOk -> atBarman
+	//Transition t0 whenReply moveOk -> atBarman
+	Goto endOrder
 			
 	
-	State atBarman{
-		println("---waiter | atBarman")
-		//prendo l'ordine da barman
-	} 
+//	State atBarman{
+//		println("---waiter | atBarman")
+//		//prendo l'ordine da barman
+//	} 
 //	Transition t0 whenReply moveOk -> atTableFromBarman
-	Goto atTableFromBarman
+//	Goto atTableFromBarman
 		
-	State atTableFromBarman{
-		println("---waiter | ordine portato al tavolo")
-		forward client -m orderDelivered: orderDelivered(OK)
-	}Goto endOrder
+//	State atTableFromBarman{
+//		println("---waiter | ordine portato al tavolo")
+//		forward client -m orderDelivered: orderDelivered(OK)
+//	}Goto endOrder
 	
 	State endOrder {
 	    println("---waiter | endOrder")
