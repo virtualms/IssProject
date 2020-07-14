@@ -1,0 +1,920 @@
+System system
+
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+//Messages
+
+//TIMER
+
+Request startTimer: startTimer(OK)
+Reply   timeOver: timeOver(TABLE)
+Dispatch stopTime: stopTimer(OK)
+
+
+//TEAROOM
+
+Request calculateTime: calculateTime(OK)
+Reply time: time(TIME)
+
+Request tableToClean: tableToClean(OK)
+Reply dirtyTable: dirtyTable(TABLE)
+
+Request updateDirty: updateDirty(TABLE)
+Reply dirtyUpdated: dirtyUpdated(OK)
+
+Request updateClean: updateClean(TABLE)
+Reply cleanUpdated: cleanUpdated(OK)
+
+Request updateTaken: updateTaken(OK)
+Reply takenUpdated: takenUpdated(TABLE)
+
+// SMARTBELL
+
+Request enter: enter(TEMP)
+Reply tempNotOk : tempNotOk(OK) 
+Reply tempOk : tempOk(TIME, ID)
+
+// WAITER MIND
+Request waitTime: waitTime(ID)
+Reply   waitTimeAnswer: waitTime(TIME)
+
+Dispatch newClient: newClient(ID)
+
+// WAITER BODY
+Request moveToEntrance : moveToEntrance(ARG)
+Request moveToTable : moveToTable(TABLE)
+Request moveToBarman : moveToBarman(ARG)
+Request moveToExit : moveToExit(ARG)
+Request moveToHome : moveToHome(ARG)
+
+Request makeTea : makeTea( TEA, TABLE )
+Reply teaReady : teaReady( TEA , TABLE)
+
+Request readyToOrder: readyToOrder(TABLE)
+Reply   atTable: atTable(TABLE)
+
+Request readyToPay: readyToPay(TABLE)
+
+Dispatch moneyCollected: moneyCollected(AMOUNT)
+
+//WALKER
+Request  movetoCell : movetoCell(X,Y)
+Reply moveOk : moveOk(ARG)
+Dispatch order: order(TEA, TABLE)
+
+//WAITERWALKER
+Dispatch cmd       : cmd(MOVE)
+Request step : step( TIME )
+Reply atcell : atcell(X,Y)
+Reply walkbreak  : walkbreak(X,Y) 
+
+//BASICROBOT
+Reply   stepdone   : stepdone(V)  
+Reply   stepfail   : stepfail(DURATION, CAUSE)
+Dispatch end       	: end(ARG) 
+Event   obstacle   : obstacle( ARG )
+Event  endall	   : endall( ARG )   
+
+
+//CONTEXT
+Context ctxwaiter ip [host="localhost" port=8010]
+
+CodedQActor datacleaner    context ctxwaiter className "rx.dataCleaner"
+CodedQActor distancefilter context ctxwaiter className "rx.distanceFilter"
+
+
+QActor tearoom context ctxwaiter{
+	[# 
+		var TABLE = 0 
+		var State = ""
+		#]
+	State s0 initial{
+		discardMsg Off
+		solve( consult("knowledgebase.pl"))
+	}Goto wait
+	
+	State wait{
+		println("tearoom | wait")
+		
+		solve( stateOfTeatables(S) )
+		ifSolved { [# State = getCurSol("S").toString() #] }
+		updateResource [# State #] 		
+		
+	}Transition t0 whenRequest calculateTime -> waitTime
+				   whenRequest tableToClean -> tableToClean
+				   whenRequest updateDirty -> dirty
+				   whenRequest updateClean -> clean
+				   whenRequest updateTaken -> taken
+   
+   State waitTime{
+   	println("tearoom | waitTime")
+   			solve(teatable(X, clean))
+   			ifSolved{
+   				replyTo calculateTime with time: time(0)
+   			}
+   			else{
+   				solve(teatable(X, dirty))
+   				ifSolved{
+   					replyTo calculateTime with time: time(5000)
+   				}
+   				else{
+   					solve(teatable(X, taken))
+   					ifSolved{
+   						replyTo calculateTime with time: time(10000)
+   					}
+   				}
+   			}
+   }Goto wait
+   
+   State tableToClean{
+   	println("tearoom | tableToClean")
+		solve( teatable(1, dirty))
+		ifSolved{ replyTo tableToClean with dirtyTable: dirtyTable(1) }
+		solve( teatable(2, dirty))
+		ifSolved{ replyTo tableToClean with dirtyTable: dirtyTable(2) }
+   }Goto wait
+   
+   State dirty{
+   	println("tearoom | dirty")
+   		onMsg(updateDirty: updateDirty(TABLE)){
+			[# 
+				TABLE = payloadArg(0).toString().toInt()
+			#]
+   			solve(dirtyTable($TABLE))
+   			replyTo updateDirty with dirtyUpdated: dirtyUpdated(OK)
+   		}
+   }Goto wait
+   
+  State clean{
+  	println("tearoom |clean")
+   		onMsg(updateClean: updateClean(TABLE)){
+			[# 
+				TABLE = payloadArg(0).toString().toInt()
+			#]
+   			solve(cleanTable($TABLE))
+   			replyTo updateClean with cleanUpdated: cleanUpdated(OK)
+   		}
+   }Goto wait
+
+  State taken{
+  	println("tearoom | taken")
+	solve(teatable(X, clean))
+	ifSolved{
+		[# 
+			TABLE = getCurSol("X").toString().toInt()
+		#]
+		solve(takenTable($TABLE))
+		replyTo updateTaken with takenUpdated: takenUpdated($TABLE)
+	}
+
+   }Goto wait
+ 	  
+}
+
+
+QActor timer1 context ctxwaiter{
+	[# var Timer = 30000L #]
+	State s0 initial{
+		discardMsg Off	
+	}Goto wait
+	
+	State wait{
+		println("timer1 | wait")	
+	}Transition t0 whenRequest startTimer -> timer
+	
+	State timer{
+		println("timer1 | timer")	
+	}Transition t0 whenTimeVar Timer -> timeover
+				   whenMsg stopTime -> wait
+    
+    State timeover{
+    	println("timer1 | timerover")
+    	replyTo startTimer with timeOver: timeOver(1)
+    }Goto wait
+}
+
+QActor timer2 context ctxwaiter{
+	[# var Timer = 30000L #]
+	State s0 initial{
+		discardMsg Off	
+	}Goto wait
+	
+	State wait{
+		println("timer2 | wait")	
+	}Transition t0 whenRequest startTimer -> timer
+	
+	State timer{
+		println("timer2 | timer")	
+	}Transition t0 whenTimeVar Timer -> timeover
+				   whenMsg stopTime -> wait
+    
+    State timeover{
+    	println("timer2 | timerover")
+    	replyTo startTimer with timeOver: timeOver(2)
+    }Goto wait
+}
+
+
+QActor waitermind context ctxwaiter{
+	[#
+		var ID = 0
+		var TIME = 0
+	#]
+	State s0 initial{
+		discardMsg Off
+	}Goto wait
+	
+	State wait{
+		updateResource[# "wait" #]
+		println("waiterMind | wait")
+		println("waiterMind | waiting enter requests")
+		
+	}Transition t0 whenRequest waitTime -> answer
+	
+	State answer{
+		updateResource[# "answer" #]
+		println("waiterMind | answer")
+		println("waiterMind | calculating the wait time for the client")
+		onMsg(waitTime: waitTime(ID)){
+			[# ID = payloadArg(0).toString().toInt()#]
+		}
+		request tearoom -m calculateTime: calculateTime(ok)
+		
+	}Transition t0 whenReply time -> comunicate
+	
+	State comunicate{
+		onMsg(time: time(TIME)){
+			[# TIME = payloadArg(0).toInt()#]
+			replyTo waitTime with waitTimeAnswer: waitTimeAnswer($TIME)
+		}
+	}Goto inform if [# TIME == 0 #] else wait
+	
+	State inform{
+		updateResource[# "inform" #]
+		println("waiterMind | inform")
+		forward waiterbody -m newClient: newClient($ID)
+		
+	} Goto wait
+	
+}
+
+
+QActor waiterbody context ctxwaiter{
+	
+	[#
+		var GoHomeTime = 5000L
+		var TABLE = 0
+		var TEA = 0
+	#]
+	
+	State s0 initial{
+		discardMsg Off
+	}Goto home
+	
+	State home{
+		updateResource[# "home" #]
+		println("waiterbody | home")
+		
+		request tearoom -m tableToClean: tableToClean(OK)
+		delay 500
+		
+	}Transition t0 whenReply dirtyTable -> goToClean
+				   whenReply timeOver -> goToChaseAway
+				   whenReply teaReady -> takeTea
+				   whenRequest readyToPay -> goToCollect
+				   whenRequest readyToOrder -> goToTakeOrder
+				   whenMsg newClient -> goToEntrance
+			   
+   	State wait{
+   	   	updateResource[# "wait" #]
+   		println("waiterbody | wait")
+		
+		request tearoom -m tableToClean: tableToClean(OK)
+		delay 500
+   		
+	}Transition t0 whenTimeVar GoHomeTime -> goToHome
+				   whenReply dirtyTable -> goToClean
+				   whenReply timeOver -> goToChaseAway
+				   whenReply teaReady -> takeTea
+				   whenRequest readyToPay -> goToCollect
+				   whenRequest readyToOrder -> goToTakeOrder
+				   whenMsg newClient -> goToEntrance
+   
+   State goToEntrance{
+   		updateResource[# "goToEntrance" #]
+   		println("waiterbody | goToEntrance")
+   		request walker -m moveToEntrance: moveToEntrance(OK)
+   }Transition t0 whenReply moveOk -> convoyToTable
+   
+   State convoyToTable{
+   		updateResource[# "convoyToTable" #]
+   		println("waiterbody | covoyToTable")
+
+		request tearoom -m updateTaken: updateTaken(OK)
+   		
+   }Transition t0 whenReply takenUpdated -> goToTable
+   
+   State goToTable{
+   		updateResource[# "goToTable" #]
+   		println("waiterbody | goToTable")
+   		
+   		onMsg( takenUpdated: takenUpdated(TABLE)){
+   			[# 
+   				TABLE = payloadArg(0).toString().toInt() 
+			#]
+			request walker -m moveToTable: moveToTable($TABLE)
+		}
+   	
+   }Transition t0 whenReply moveOk -> wait
+   
+   State startTimer{
+   		println("waiterbody | startTimer")
+   		if [# TABLE == 1 #]{
+   			request timer1 -m startTimer: startTimer(OK)
+   		}
+   		else{
+   			request timer2 -m startTimer: startTimer(OK)
+   		}
+   }Goto wait
+   
+   State goToClean{
+   		updateResource[# "goToClean" #]
+   		println("waiterbody | goToClean")
+   		println("waiterbody | going to clean the table")
+   		
+		onMsg(dirtyTable : dirtyTable(TABLE)){
+
+   			[# 
+   				TABLE = payloadArg(0).toString().toInt() 
+			#]
+			request walker -m moveToTable: moveToTable($TABLE)
+			
+		}
+   }Transition t0 whenReply moveOk -> clean
+   
+   State clean{
+   		updateResource[# "clean" #]
+   		println("waiterbody | clean")
+   		println("waiterbody | cleaning the table")
+		request tearoom -m updateClean: updateClean($TABLE)
+
+   } Transition t0 whenReply cleanUpdated -> wait
+   
+   State goToCollect{
+   	   	updateResource[# "goToCollect" #]
+   		println("waiterbody | goToCollect")
+   		println("waiterbody | going to collect the money")
+		onMsg(readyToPay : readyToPay(TABLE)){
+			
+			 [#
+			 	TABLE = payloadArg(0).toString().toInt() 
+			 #]
+			 request walker -m moveToTable: moveToTable($TABLE)
+		}
+   } Transition t0 whenReply moveOk -> collect
+   
+   State goToChaseAway{
+   	   	updateResource[# "goToChaseAway" #]
+   		println("waiterbody | goToCollect")
+   		println("waiterbody | going to collect the money")
+		onMsg(timeOver : timeOver(TABLE)){
+			
+			 [#
+			 	TABLE = payloadArg(0).toString().toInt() 
+			 #]
+			 request walker -m moveToTable: moveToTable($TABLE)
+		}
+   }Transition t0 whenReply moveOk -> collect
+   
+   State collect{
+   	   	updateResource[# "collect" #]
+   		println("waiterbody | collect")
+   		println("waiterbody | collecting the money")
+   		replyTo readyToPay with atTable: atTable($TABLE)
+   }Transition t0 whenMsg moneyCollected -> goToExit
+   
+   State goToExit{
+   	   	updateResource[# "goToExit" #]
+   		println("waiterbody | goToExit")
+   		println("waiterbody | convoying the client to the exit")
+   		
+   		request tearoom -m updateDirty: updateDirty($TABLE)
+   		request walker -m moveToExit: moveToExit(OK)
+   		
+   }Transition t0 whenReply moveOk -> wait
+   
+   State goToTakeOrder{
+   	   	updateResource[# "goToTakeOrder" #]
+   		println("waiterbody | goToTakeOrder")
+   		println("waiterbody | going to take the order from the Table")
+		onMsg(readyToOrder : readyToOrder(TABLE)){
+ 			 [#
+			 	TABLE = payloadArg(0).toString().toInt() 
+			 #]
+			 request walker -m moveToTable: moveToTable($TABLE)
+		}
+   		
+   } Transition t0 whenReply moveOk -> takeOrder
+   
+   State takeOrder{
+   	   	updateResource[# "takeOrder" #]
+   		println("waiterbody | takeOrder")
+   		println("waiterbody | ready to take the order")
+   		replyTo readyToOrder with atTable: atTable
+		
+   }Transition t0 whenMsg order -> sendOrder 
+	
+	
+	State sendOrder{
+   	   	updateResource[# "sendOrder" #]
+   		println("waiterbody | sendOrder")
+   		println("waiterbody | sending the order to the barman")
+		onMsg(order : order(TEA, TABLE)){
+			 [#
+			 	TEA  = payloadArg(0).toString().toInt() 
+			 	TABLE = payloadArg(1).toString().toInt() 
+			 #]
+			 request barman -m makeTea: makeTea($TEA, $TABLE)
+		}
+ 		
+	}Goto wait
+	
+	State takeTea{
+   	   	updateResource[# "takeTea" #]
+   		println("waiterbody | takeTea")
+   		println("waiterbody | going to the barman to take the tea")
+		onMsg(teaReady : teaReady(TEA, TABLE)){
+			 [#
+			 	TEA  = payloadArg(0).toString().toInt() 
+			 	TABLE = payloadArg(1).toString().toInt() 
+			 #]
+		 
+		 }
+   		request walker -m moveToBarman: moveToBarman(OK)
+		
+	}Transition t0 whenReply moveOk -> serve
+	
+	State serve{
+   	   	updateResource[# "serve" #]
+   		println("waiterbody | serve")
+   		println("waiterbody | going to serve the tea")
+   		
+   		request walker -m moveToTable: moveToTable($TABLE)
+   		
+	}Transition t0 whenReply moveOk -> startTimer
+				   
+    State goToHome{
+   	   	updateResource[# "goToHome" #]
+   		println("waiterbody | goToHome")
+   		println("waiterbody | going to home")
+   		
+    	request walker -m moveToHome: moveToHome(HOME)
+    }Transition t0 whenReply moveOk -> home
+}
+
+QActor barman context ctxwaiter {
+	[#
+		var TABLE = 0
+		var TEA = 0
+	
+	#]
+	State s0 initial {
+		println("Barman | s0")
+		discardMsg Off
+	} Goto waiting
+	
+	State waiting{
+		updateResource[# "wait" #]
+		println("Barman | waiting")
+		
+	}
+	Transition t0 whenRequest makeTea -> makingTea
+	
+	State makingTea {
+		updateResource[# "makingTea" #]
+		println("Barman | making tea")
+		onMsg(makeTea : makeTea(TEA,TABLE)){	
+			 [#
+			 	TEA  = payloadArg(0).toString().toInt() 
+			 	TABLE = payloadArg(1).toString().toInt() 
+			 #]
+			 replyTo makeTea with teaReady: teaReady($TEA, $TABLE)
+		}
+	}
+	Goto waiting
+}
+ 
+ 
+ QActor smartbell context ctxwaiter{
+	
+	[#
+		var ID = 0
+	#]
+	
+	State s0 initial{
+		println("smartBell | s0")
+		solve( consult("temperature.pl"))
+		discardMsg Off
+	} Goto wait
+	
+	State wait{
+		updateResource[# "wait" #]
+		println("smartBell | wait")
+		println("smartBell | waiting for client requests")
+		
+	} Transition t0 whenRequest enter -> checkTemp
+					whenReply waitTimeAnswer -> answer
+	
+	
+	
+	State checkTemp{
+		updateResource[# "checkTemp" #]
+		println("smartBell | checkTemp")
+		onMsg(enter : enter(TEMP)){
+			solve(tempOk($payloadArg(0)))
+			ifSolved{
+				println("smartBell | waitermind")	
+				request waitermind -m waitTime: waitTime($ID)
+			}
+			else{
+				println("smartBell | client")
+				replyTo enter with tempNotOk: tempNotOK(OK)
+			}
+		}
+	}Goto wait
+	
+	State answer{
+		updateResource[# "answer" #]
+		println("smartBell | answer")
+		onMsg(waitTimeAnswer : waitTimeAnswer(TIME)){
+			replyTo enter with tempOk: tempOk($ID)
+		} 
+		[#
+			ID = ID + 1
+		#]
+	}Goto wait
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+QActor walker context ctxwaiter{
+	
+	[#
+		var ARG = 0
+		var X_tmp		= "0"
+		var Y_tmp		= "0"
+
+		var X_home		= "0"
+		var Y_home		= "0"
+		
+		var X_barman		= "5"
+		var Y_barman		= "0"
+
+		var X_entrancedoor  = "0"
+		var Y_entrancedoor  = "4"
+	
+		var X_exitdoor      = "5"
+		var Y_exitdoor      = "4"
+ 
+		var X_teatable1     = "2"
+		var Y_teatable1     = "2"
+
+		var X_teatable2     = "4"
+		var Y_teatable2     = "2"	
+	#]
+	
+	State s0 initial{
+		println("---walker | s0")	
+	} Goto wait
+	
+	State wait{
+		println("---walker | wait")	
+	}
+	Transition t0
+  				  whenRequest moveToEntrance -> moveToEntrance
+//  				  whenRequest moveToTable1 -> moveToTable1
+//  				  whenRequest moveToTable2 -> moveToTable2 
+  				  whenRequest moveToTable -> moveToTable
+				  whenRequest moveToBarman -> moveToBarman 
+				  whenRequest moveToExit -> moveToExit
+				  whenRequest moveToHome -> moveToHome 
+				  
+	State moveToEntrance {
+		println("---walker | moveToEntrace")	
+		request waiterwalker -m movetoCell : movetoCell ($X_entrancedoor, $Y_entrancedoor)	
+	} Transition t0 whenReply atcell -> respondEntrance
+	
+	State respondEntrance {
+		println("---walker | respondEntrance")	
+		replyTo moveToEntrance with moveOk : OK
+	} Goto wait
+	
+	State moveToTable {
+		println("---walker | moveToTable")	
+		
+		onMsg(moveToTable : moveToTable(TABLE)){
+			
+			[# 
+				ARG = payloadArg(0).toString().toInt()
+				
+				if(ARG == 1){
+					X_tmp = X_teatable1
+					Y_tmp = Y_teatable1
+				}else{
+					X_tmp = X_teatable2
+					Y_tmp = Y_teatable2
+				}
+				
+			 #]
+			
+		}
+		
+		request waiterwalker -m movetoCell : movetoCell ($X_tmp, $Y_tmp)	
+	} Transition t0 whenReply atcell -> respondTeaTable
+	
+	State respondTeaTable {
+		println("---walker | respondTeaTable ")	
+		replyTo moveToTable with moveOk : OK
+	} Goto wait	
+	
+	
+	
+	
+	State moveToBarman {
+		println("---walker | moveToBarman")	
+		request waiterwalker -m movetoCell : movetoCell ($X_barman, $Y_barman)	
+	} Transition t0 whenReply atcell -> respondBarman
+	
+	State respondBarman {
+		println("---walker | respondBarman")	
+		replyTo moveToBarman with moveOk : OK
+	} Goto wait	
+	
+	
+	
+	
+	State moveToExit{
+		println("---walker | moveToExit")	
+		request waiterwalker -m movetoCell : movetoCell ($X_exitdoor, $Y_exitdoor)	
+	} Transition t0 whenReply atcell -> respondExit
+	
+	State respondExit {
+		println("---walker | respondExit")	
+		replyTo moveToExit with moveOk : OK
+	} Goto wait
+	
+	
+	
+	
+	State moveToHome{
+		println("---walker | moveToHome")	
+		request waiterwalker -m movetoCell : movetoCell ($X_home, $Y_home)	
+	} Transition t0 whenReply atcell -> respondHome
+	
+	State respondHome{
+		println("---walker | respondHome")	
+		replyTo moveToHome with moveOk : OK
+	} Goto wait
+	
+	
+	
+}
+
+
+
+
+QActor waiterwalker context ctxwaiter{  
+[#
+	var XT = "0"
+	var YT = "0" 
+	var CurrentPlannedMove = ""
+	var StepTime    	   = 355L
+	val PauseTime          = 250L
+	val BackTime           = 2 * StepTime / 3
+	var obstacleFound      = false  
+	
+	val inmapname          		= "teaRoomExplored" 
+#]
+
+	State s0 initial {
+		println("--waiterwalker | s0")	     
+		
+		run itunibo.planner.plannerUtil.initAI()
+		solve( consult("tearoomkb.pl")	 )
+  		
+ 		run itunibo.planner.plannerUtil.loadRoomMap( inmapname ) 		
+ 		run itunibo.planner.plannerUtil.showCurrentRobotState()	
+ 		
+		delay 500
+	}	
+	Goto waitCmd   
+	 
+	State waitCmd {	     
+ 		println("--waiterwalker | waitCmd")
+	}	
+	Transition t0 whenRequest movetoCell -> walk
+ 	
+	State walk{
+		println("--waiterwalker | walk")
+		onMsg( movetoCell : movetoCell(X,Y) ){
+			[# XT = payloadArg(0)
+			   YT = payloadArg(1)			  
+			 #]
+			run itunibo.planner.plannerUtil.planForGoal("$XT","$YT")
+		}
+	}
+	Goto execPlannedMoves if[# itunibo.planner.plannerUtil.existActions() #] else noPlan
+
+	State noPlan{
+		println("--waiterwalker | noPlan")
+		replyTo movetoCell with walkbreak : walkbreak( $XT,$YT )
+	}
+	Goto waitCmd
+	
+/*
+ * Execute the plan
+ */					  
+ 	State execPlannedMoves{ 
+ 		println("--waiterwalker | execPlannedMoves")
+ 		[#  CurrentPlannedMove = itunibo.planner.plannerUtil.getNextPlannedMove() #]
+ 		delayVar PauseTime
+ 	}
+ 	Goto wMove if [# CurrentPlannedMove == "w" #] else otherPlannedMove
+ 
+ 	State wMove {  
+ 		println("--waiterwalker | wMove")
+		request basicrobot -m step : step( $StepTime  )
+ 	} 	
+ 	Transition t0   whenReply stepdone   -> stepDone   
+					whenReply stepfail   -> stepFailed 
+	 
+ 	State stepDone{
+ 		println("--waiterwalker | stepDone")  
+ 		run itunibo.planner.plannerUtil.updateMap(  "w" )
+  	}
+	Goto execPlannedMoves if [# CurrentPlannedMove.length > 0 #] else sendSuccessAnswer
+		
+	State stepFailed{  //has found an obstacle 
+	    [# obstacleFound = true #]
+ 		println("--waiterwalker | stepFailed")
+		onMsg(stepfail : stepfail(DURATION, CAUSE) ){
+			[# val D = payloadArg(0).toLong()  ; val Dt = Math.abs(StepTime-D); val BackT = D/2 #] 
+			if [# D > BackTime #] {    
+				forward basicrobot -m cmd : cmd( s )
+				delayVar BackT
+				forward basicrobot -m cmd : cmd( h )
+			}	 
+ 		}
+	    run itunibo.planner.plannerUtil.updateMapObstacleOnCurrentDirection() 			    
+ 	}   
+	Goto sendFailureAnswer
+	
+ 	State otherPlannedMove{
+ 		println("--waiterwalker | otherPlannedMove")
+  		if [# CurrentPlannedMove == "l" || CurrentPlannedMove == "r"  #]{
+  			forward basicrobot -m cmd : cmd($CurrentPlannedMove)
+ 			run itunibo.planner.plannerUtil.updateMap( "$CurrentPlannedMove" )
+  		} 
+ 	}   
+ 	Goto execPlannedMoves if [# CurrentPlannedMove.length > 0 #] else sendSuccessAnswer 
+ 
+/*
+ * Answers  
+ */ 
+ 	State sendSuccessAnswer{
+	     	println("--waiterwalker | sendSuccessAnswer")
+	     	run itunibo.planner.plannerUtil.showCurrentRobotState()
+	     	replyTo movetoCell with atcell : atcell($XT,$YT) 					
+	}
+	Goto waitCmd  
+
+	State sendFailureAnswer{
+	    println("--waiterwalker | sendFailureAnswer")
+	    [# val Curx = itunibo.planner.plannerUtil.getPosX()
+	       val Cury = itunibo.planner.plannerUtil.getPosY()	
+	    #]
+  		run itunibo.planner.plannerUtil.showCurrentRobotState()
+	    replyTo movetoCell with walkbreak : walkbreak( $Curx, $Cury ) 					
+	}
+	Goto waitCmd
+       
+ }
+ 
+ 
+ QActor basicrobot context ctxwaiter{
+[#
+  var StepTime      = 0L
+  var StartTime     = 0L    
+  var Duration      = 0L    
+#]  
+ 	State s0 initial { 	 
+ 		println("--basicRobot | s0")
+ 		qrun unibo.robot.robotSupport.create(myself,"basicrobotConfig.json")
+ 		[#  //For real robots
+ 			var robotsonar = context!!.hasActor("robotsonar")  
+ 			if( robotsonar != null ){  
+ 				//ACTIVATE THE DATA SOURCE robotsonar
+ 				forward("sonarstart", "sonarstart(1)" ,"robotsonar" ) 				
+ 				//SET THE PIPE
+ 				robotsonar.
+ 				subscribeLocalActor("datacleaner").
+ 				subscribeLocalActor("distancefilter").
+ 				subscribeLocalActor("basicrobot")		//in order to perceive obstacle
+ 			}
+ 		#]
+ 		updateResource [# "stopped" #]
+ 		discardMsg Off  //WE want receive any msg
+ 	}
+	Goto work
+	
+	State work{ 
+		 println("--basicRobot | work")
+	} 
+	Transition t1   whenMsg     cmd       -> execcmd
+					whenRequest step      -> doStep
+				  	whenMsg     end       -> endwork			  
+	
+	
+	
+	State execcmd{
+ 		println("--basicRobot | execcmd")
+		onMsg( cmd : cmd(MOVE) ){
+  			//activate the motors 
+			run unibo.robot.robotSupport.move( payloadArg(0 ) )
+			updateResource [# "movedone(${payloadArg(0)})" #]
+		}
+	 }
+	 Goto work  
+
+   	State doStep{ 
+ 		println("--basicRobot | doStep")  
+		onMsg( step : step( T ) ){  
+			[#	StepTime = payloadArg(0).toLong() 	#]  
+			updateResource [# "step(${StepTime})" #]
+			//println("basicrobot | doStep StepTime =$StepTime ")
+ 			run unibo.robot.robotSupport.move( "w" )
+ 			memoCurrentTime StartTime  
+		}  
+	}  
+	Transition t0 
+		whenTimeVar StepTime      -> stepPerhapsDone	
+		whenEvent  obstacle       -> stepFail		 
+  	
+ 	State stepPerhapsDone{ 
+ 		println("--basicRobot | stepPerhapsDone")
+ 		run unibo.robot.robotSupport.move( "h" )  //stop the robot
+  	}
+ 	Transition t0 whenTimeVar StepTime    -> stepDone  //StepTime is the worst case
+ 				  whenEvent obstacle      -> stepFailDetected
+	
+	State stepDone{   
+ 		println("--basicRobot | stepDone")
+ 		run unibo.robot.robotSupport.move( "h" )  //stop the robot
+		updateResource [# "stepDone($StepTime)" #]
+   		replyTo step with stepdone : stepdone(ok)
+  	}
+	Goto work  
+	
+	State stepFailDetected{
+ 		println("--basicRobot | stepFailDetected")
+		replyTo step with stepfail : stepfail($StepTime, obstacle)
+    }
+	Goto work 
+	 
+	State stepFail{  
+ 		println("--basicRobot | stepFail")
+		setDuration Duration from StartTime
+ 		updateResource [# "stepFail($Duration)" #]
+		emit obstacle : obstacle(unknown) 
+ 		replyTo step with stepfail : stepfail($Duration, obstacle)
+    }
+	Goto work 
+	
+	State endwork{ 
+		println("--basicRobot | endwork")
+		onMsg( end : end( V ) ){ 
+			updateResource [# "move(end)" #]	 		
+			run utils.virtualRobotSupportQak.terminatevr( )
+		}
+ 		emit endall : endall(normal) 
+ 		terminate 1
+	}  
+	   
+}
+
