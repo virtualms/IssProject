@@ -1,0 +1,39 @@
+System barman
+
+mqttBroker "localhost": 1883 eventTopic "unibo/polar" 
+
+Event makeTea : makeTea( TEA, TABLE )
+
+Event teaReady : teaReady( ARG )
+
+Context ctxbarman ip [ host="localhost" port=8060]
+//Context ctxwaiter ip [host="127.0.0.1" port=8090]  
+
+//ExternalQActor waiter context ctxwaiter
+
+QActor barman context ctxbarman {
+	
+	State s0 initial {
+		
+		println("Barman		| starts")
+	
+	}
+	Goto waiting
+	
+	State waiting{
+		updateResource[# "waiting" #]
+		println("Barman		| waiting")
+	}
+	//Transition t0 whenMsg makeTea -> makingTea
+	Transition t0 whenEvent makeTea -> makingTea
+	
+	State makingTea {
+		updateResource[# "makingTea" #]
+		println("Barman 	| making tea")
+		delay 4000
+		onMsg(makeTea : TEA){	
+			emit teaReady : teaReady(TEA)
+		}
+	}
+	Goto waiting
+}
