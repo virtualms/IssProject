@@ -265,6 +265,8 @@ QActor waiterbody context ctxwaiter{
 		var GoHomeTime = 5000L
 		var TABLE = 0
 		var TEA = 0
+		
+		var CALLED = 0
 	#]
 	
 	State s0 initial{
@@ -368,19 +370,29 @@ QActor waiterbody context ctxwaiter{
 			
 			 [#
 			 	TABLE = payloadArg(0).toString().toInt() 
+			 	CALLED = 1
 			 #]
+			 
+			 if [# TABLE == 1 #] {
+			 	forward timer1 -m stopTime: stopTime(now)
+			 }
+			 else{
+			 	forward timer2 -m stopTime: stopTime(now)
+			 }
+			 
 			 request walker -m moveToTable: moveToTable($TABLE)
 		}
    } Transition t0 whenReply moveOk -> collect
    
    State goToChaseAway{
    	   	updateResource[# "goToChaseAway" #]
-   		println("waiterbody | goToCollect")
+   		println("waiterbody | goToChaseAway")
    		println("waiterbody | going to collect the money")
 		onMsg(timeOver : timeOver(TABLE)){
 			
 			 [#
 			 	TABLE = payloadArg(0).toString().toInt() 
+			 	CALLED = 0
 			 #]
 			 request walker -m moveToTable: moveToTable($TABLE)
 		}
@@ -390,7 +402,11 @@ QActor waiterbody context ctxwaiter{
    	   	updateResource[# "collect" #]
    		println("waiterbody | collect")
    		println("waiterbody | collecting the money")
-   		replyTo readyToPay with atTable: atTable($TABLE)
+   		
+   		if [# CALLED == 1#]{
+	   		replyTo readyToPay with atTable: atTable($TABLE)
+   		}
+
    }Transition t0 whenMsg moneyCollected -> goToExit
    
    State goToExit{
