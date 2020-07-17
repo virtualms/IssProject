@@ -175,7 +175,7 @@ QActor tearoom context ctxwaiter{
 QActor timer1 context ctxwaiter{
 	[# var Timer = 30000L #]
 	State s0 initial{
-		discardMsg Off	
+		discardMsg On	
 	}Goto wait
 	
 	State wait{
@@ -196,7 +196,7 @@ QActor timer1 context ctxwaiter{
 QActor timer2 context ctxwaiter{
 	[# var Timer = 30000L #]
 	State s0 initial{
-		discardMsg Off	
+		discardMsg On	
 	}Goto wait
 	
 	State wait{
