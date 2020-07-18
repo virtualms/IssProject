@@ -1,0 +1,68 @@
+System waitermind
+
+//MQTT
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+//MESSAGES
+Request waitTime: waitTime(ID)
+Reply   waitTimeAnswer: waitTime(TIME)
+
+Dispatch newClient: newClient(ID)
+
+Request calculateTime: calculateTime(OK) 
+Reply time: time(TIME) 
+
+//CONTEXT
+Context ctxsmartbell ip [host="localhost" port=8010]
+Context ctxwaitermind ip [host="localhost" port=8020]
+Context ctxtearoom ip [host="localhost" port=8040]
+Context ctxwaiterbody ip [host="localhost" port=8021]
+
+//EXTERNAL
+ExternalQActor smartbell context ctxsmartbell
+ExternalQActor tearoom context ctxtearoom
+ExternalQActor waiterbody context ctxwaiterbody
+
+//ACTOR
+QActor waitermind context ctxwaitermind{
+	[#
+		var ID = 0
+		var TIME = 0
+	#]
+	State s0 initial{
+		discardMsg Off
+	}Goto wait
+	
+	State wait{
+		updateResource[# "wait" #]
+		println("waiterMind | wait")
+		println("waiterMind | waiting enter requests")
+		
+	}Transition t0 whenRequest waitTime -> answer
+	
+	State answer{
+		updateResource[# "answer" #]
+		println("waiterMind | answer")
+		println("waiterMind | calculating the wait time for the client")
+		onMsg(waitTime: waitTime(ID)){
+			[# ID = payloadArg(0).toString().toInt()#]
+		}
+		request tearoom -m calculateTime: calculateTime(ok)
+		
+	}Transition t0 whenReply time -> comunicate
+	
+	State comunicate{
+		onMsg(time: time(TIME)){
+			[# TIME = payloadArg(0).toInt()#]
+			replyTo waitTime with waitTimeAnswer: waitTimeAnswer($TIME)
+		}
+	}Goto inform if [# TIME == 0 #] else wait
+	
+	State inform{
+		updateResource[# "inform" #]
+		println("waiterMind | inform")
+		forward waiterbody -m newClient: newClient($ID)
+		
+	} Goto wait
+	
+}

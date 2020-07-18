@@ -1,0 +1,70 @@
+System smartbell
+
+//MQTT
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+//MESSAGES
+Request enter: enter(TEMP) 
+Reply tempNotOk : tempNotOk(OK)  
+Reply tempOk : tempOk(TIME, ID) 
+
+Request waitTime: waitTime(ID) 
+Reply   waitTimeAnswer: waitTimeAnswer (TIME) 
+
+//CONTEXT
+Context ctxsmartbell ip [host="localhost" port=8010]
+Context ctxwaitermind ip [host="localhost" port=8020]
+
+//EXTERNAL
+ExternalQActor waitermind context ctxwaitermind
+
+//ACTOR
+QActor smartbell context ctxsmartbell{
+	
+	[#
+		var ID = 0
+	#]
+	
+	State s0 initial{
+		println("smartBell | s0")
+		solve( consult("temperature.pl"))
+		discardMsg Off
+	} Goto wait
+	
+	State wait{
+		updateResource[# "wait" #]
+		println("smartBell | wait")
+		println("smartBell | waiting for client requests")
+		
+	} Transition t0 whenRequest enter -> checkTemp
+					whenReply waitTimeAnswer -> answer
+	
+	
+	
+	State checkTemp{
+		updateResource[# "checkTemp" #]
+		println("smartBell | checkTemp")
+		onMsg(enter : enter(TEMP)){
+			solve(tempOk($payloadArg(0)))
+			ifSolved{
+				println("smartBell | waitermind")	
+				request waitermind -m waitTime: waitTime($ID)
+			}
+			else{
+				println("smartBell | client")
+				replyTo enter with tempNotOk: tempNotOK(OK)
+			}
+		}
+	}Goto wait
+	
+	State answer{
+		updateResource[# "answer" #]
+		println("smartBell | answer")
+		onMsg(waitTimeAnswer : waitTimeAnswer(TIME)){
+			replyTo enter with tempOk: tempOk($ID)
+		} 
+		[#
+			ID = ID + 1
+		#]
+	}Goto wait
+}

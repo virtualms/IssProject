@@ -1,0 +1,140 @@
+System waiterwalker
+
+//MQTT
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+//MESSAGES
+Dispatch cmd       : cmd(MOVE)
+Request step : step( TIME )
+Reply atcell : atcell(X,Y)
+Reply walkbreak  : walkbreak(X,Y) 
+
+Reply   stepdone   : stepdone(V)  
+Reply   stepfail   : stepfail(DURATION, CAUSE)
+
+Request  movetoCell : movetoCell(X,Y)
+
+//CONTEXT
+Context ctxwaiterwalker ip [host="localhost" port=8060]
+Context ctxbasicrobot ip [host="localhost" port=8070]
+
+//EXTERNAL
+ExternalQActor basicrobot context ctxbasicrobot
+
+//ACTOR
+QActor waiterwalker context ctxwaiterwalker{  
+[#
+	var XT = "0"
+	var YT = "0" 
+	var CurrentPlannedMove = ""
+	var StepTime    	   = 355L
+	val PauseTime          = 250L
+	val BackTime           = 2 * StepTime / 3
+	var obstacleFound      = false  
+	
+	val inmapname          		= "teaRoomExplored" 
+#]
+
+	State s0 initial {
+		println("--waiterwalker | s0")	     
+		
+		run itunibo.planner.plannerUtil.initAI()
+		solve( consult("tearoomkb.pl")	 )
+  		
+ 		run itunibo.planner.plannerUtil.loadRoomMap( inmapname ) 		
+ 		run itunibo.planner.plannerUtil.showCurrentRobotState()	
+ 		
+		delay 500
+	}	
+	Goto waitCmd   
+	 
+	State waitCmd {	     
+ 		println("--waiterwalker | waitCmd")
+	}	
+	Transition t0 whenRequest movetoCell -> walk
+ 	
+	State walk{
+		println("--waiterwalker | walk")
+		onMsg( movetoCell : movetoCell(X,Y) ){
+			[# XT = payloadArg(0)
+			   YT = payloadArg(1)			  
+			 #]
+			run itunibo.planner.plannerUtil.planForGoal("$XT","$YT")
+		}
+	}
+	Goto execPlannedMoves if[# itunibo.planner.plannerUtil.existActions() #] else noPlan
+
+	State noPlan{
+		println("--waiterwalker | noPlan")
+		replyTo movetoCell with walkbreak : walkbreak( $XT,$YT )
+	}
+	Goto waitCmd
+	
+/*
+ * Execute the plan
+ */					  
+ 	State execPlannedMoves{ 
+ 		println("--waiterwalker | execPlannedMoves")
+ 		[#  CurrentPlannedMove = itunibo.planner.plannerUtil.getNextPlannedMove() #]
+ 		delayVar PauseTime
+ 	}
+ 	Goto wMove if [# CurrentPlannedMove == "w" #] else otherPlannedMove
+ 
+ 	State wMove {  
+ 		println("--waiterwalker | wMove")
+		request basicrobot -m step : step( $StepTime  )
+ 	} 	
+ 	Transition t0   whenReply stepdone   -> stepDone   
+					whenReply stepfail   -> stepFailed 
+	 
+ 	State stepDone{
+ 		println("--waiterwalker | stepDone")  
+ 		run itunibo.planner.plannerUtil.updateMap(  "w" )
+  	}
+	Goto execPlannedMoves if [# CurrentPlannedMove.length > 0 #] else sendSuccessAnswer
+		
+	State stepFailed{  //has found an obstacle 
+	    [# obstacleFound = true #]
+ 		println("--waiterwalker | stepFailed")
+		onMsg(stepfail : stepfail(DURATION, CAUSE) ){
+			[# val D = payloadArg(0).toLong()  ; val Dt = Math.abs(StepTime-D); val BackT = D/2 #] 
+			if [# D > BackTime #] {    
+				forward basicrobot -m cmd : cmd( s )
+				delayVar BackT
+				forward basicrobot -m cmd : cmd( h )
+			}	 
+ 		}
+	    run itunibo.planner.plannerUtil.updateMapObstacleOnCurrentDirection() 			    
+ 	}   
+	Goto sendFailureAnswer
+	
+ 	State otherPlannedMove{
+ 		println("--waiterwalker | otherPlannedMove")
+  		if [# CurrentPlannedMove == "l" || CurrentPlannedMove == "r"  #]{
+  			forward basicrobot -m cmd : cmd($CurrentPlannedMove)
+ 			run itunibo.planner.plannerUtil.updateMap( "$CurrentPlannedMove" )
+  		} 
+ 	}   
+ 	Goto execPlannedMoves if [# CurrentPlannedMove.length > 0 #] else sendSuccessAnswer 
+ 
+/*
+ * Answers  
+ */ 
+ 	State sendSuccessAnswer{
+	     	println("--waiterwalker | sendSuccessAnswer")
+	     	run itunibo.planner.plannerUtil.showCurrentRobotState()
+	     	replyTo movetoCell with atcell : atcell($XT,$YT) 					
+	}
+	Goto waitCmd  
+
+	State sendFailureAnswer{
+	    println("--waiterwalker | sendFailureAnswer")
+	    [# val Curx = itunibo.planner.plannerUtil.getPosX()
+	       val Cury = itunibo.planner.plannerUtil.getPosY()	
+	    #]
+  		run itunibo.planner.plannerUtil.showCurrentRobotState()
+	    replyTo movetoCell with walkbreak : walkbreak( $Curx, $Cury ) 					
+	}
+	Goto waitCmd
+       
+ }

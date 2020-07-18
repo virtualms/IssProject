@@ -1,0 +1,48 @@
+System barman
+
+//MQTT
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+//MESSAGES
+Request makeTea : makeTea( TEA, TABLE ) 
+Reply teaReady : teaReady( TEA , TABLE) 
+
+//CONTEXT
+Context ctxbarman ip [host="localhost" port=8030]
+Context ctxwaitermind ip [host="localhost" port=8020]
+
+//EXTERNAL
+ExternalQActor waitermind context ctxwaitermind
+
+//ACTOR
+QActor barman context ctxbarman {
+	[#
+		var TABLE = 0
+		var TEA = 0
+	
+	#]
+	State s0 initial {
+		println("Barman | s0")
+		discardMsg Off
+	} Goto waiting
+	
+	State waiting{
+		updateResource[# "wait" #]
+		println("Barman | waiting")
+		
+	}
+	Transition t0 whenRequest makeTea -> makingTea
+	
+	State makingTea {
+		updateResource[# "makingTea" #]
+		println("Barman | making tea")
+		onMsg(makeTea : makeTea(TEA,TABLE)){	
+			 [#
+			 	TEA  = payloadArg(0).toString().toInt() 
+			 	TABLE = payloadArg(1).toString().toInt() 
+			 #]
+			 replyTo makeTea with teaReady: teaReady($TEA, $TABLE)
+		}
+	}
+	Goto waiting
+}

@@ -1,0 +1,114 @@
+System tearoom
+
+//MQTT
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+//MESSAGES
+Request calculateTime: calculateTime(OK) 
+Reply time: time(TIME) 
+
+Request tableToClean: tableToClean(OK) 
+Reply dirtyTable: dirtyTable(TABLE) 
+
+Request updateDirty: updateDirty(TABLE) 
+Reply dirtyUpdated: dirtyUpdated(OK) 
+
+Request updateClean: updateClean(TABLE) 
+Reply cleanUpdated: cleanUpdated(OK) 
+
+Request updateTaken: updateTaken(OK) 
+Reply takenUpdated: takenUpdated(TABLE) 
+
+//CONTEXT
+Context ctxtearoom ip [host="localhost" port=8040]
+
+//EXTERNAL
+
+//QACTOR
+QActor tearoom context ctxtearoom{
+	[# 
+		var TABLE = 0 
+		var State = ""
+		#]
+	State s0 initial{
+		discardMsg Off
+		solve( consult("knowledgebase.pl"))
+	}Goto wait
+	
+	State wait{
+		println("tearoom | wait")
+		
+		solve( stateOfTeatables(S) )
+		ifSolved { [# State = getCurSol("S").toString() #] }
+		updateResource [# State #] 		
+		
+	}Transition t0 whenRequest calculateTime -> waitTime
+				   whenRequest tableToClean -> tableToClean
+				   whenRequest updateDirty -> dirty
+				   whenRequest updateClean -> clean
+				   whenRequest updateTaken -> taken
+   
+   State waitTime{
+   	println("tearoom | waitTime")
+   			solve(teatable(X, clean))
+   			ifSolved{
+   				replyTo calculateTime with time: time(0)
+   			}
+   			else{
+   				solve(teatable(X, dirty))
+   				ifSolved{
+   					replyTo calculateTime with time: time(5000)
+   				}
+   				else{
+   					solve(teatable(X, taken))
+   					ifSolved{
+   						replyTo calculateTime with time: time(10000)
+   					}
+   				}
+   			}
+   }Goto wait
+   
+   State tableToClean{
+   	println("tearoom | tableToClean")
+		solve( teatable(1, dirty))
+		ifSolved{ replyTo tableToClean with dirtyTable: dirtyTable(1) }
+		solve( teatable(2, dirty))
+		ifSolved{ replyTo tableToClean with dirtyTable: dirtyTable(2) }
+   }Goto wait
+   
+   State dirty{
+   	println("tearoom | dirty")
+   		onMsg(updateDirty: updateDirty(TABLE)){
+			[# 
+				TABLE = payloadArg(0).toString().toInt()
+			#]
+   			solve(dirtyTable($TABLE))
+   			replyTo updateDirty with dirtyUpdated: dirtyUpdated(OK)
+   		}
+   }Goto wait
+   
+  State clean{
+  	println("tearoom |clean")
+   		onMsg(updateClean: updateClean(TABLE)){
+			[# 
+				TABLE = payloadArg(0).toString().toInt()
+			#]
+   			solve(cleanTable($TABLE))
+   			replyTo updateClean with cleanUpdated: cleanUpdated(OK)
+   		}
+   }Goto wait
+
+  State taken{
+  	println("tearoom | taken")
+	solve(teatable(X, clean))
+	ifSolved{
+		[# 
+			TABLE = getCurSol("X").toString().toInt()
+		#]
+		solve(takenTable($TABLE))
+		replyTo updateTaken with takenUpdated: takenUpdated($TABLE)
+	}
+
+   }Goto wait
+ 	  
+}

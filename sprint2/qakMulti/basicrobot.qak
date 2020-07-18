@@ -1,0 +1,118 @@
+System basicrobot
+
+//MQTT
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+//BASICROBOT
+Reply   stepdone   : stepdone(V)  
+Reply   stepfail   : stepfail(DURATION, CAUSE)
+Dispatch end       	: end(ARG) 
+Event   obstacle   : obstacle( ARG )
+Event  endall	   : endall( ARG )   
+
+Request step : step( TIME )
+Dispatch cmd       : cmd(MOVE)
+
+//CONTEXT
+Context ctxbasicrobot ip [host="localhost" port=8070]
+
+//ACTOR
+QActor basicrobot context ctxbasicrobot{
+[#
+  var StepTime      = 0L
+  var StartTime     = 0L    
+  var Duration      = 0L    
+#]  
+ 	State s0 initial { 	 
+ 		println("--basicRobot | s0")
+ 		qrun unibo.robot.robotSupport.create(myself,"basicrobotConfig.json")
+ 		[#  //For real robots
+ 			var robotsonar = context!!.hasActor("robotsonar")  
+ 			if( robotsonar != null ){  
+ 				//ACTIVATE THE DATA SOURCE robotsonar
+ 				forward("sonarstart", "sonarstart(1)" ,"robotsonar" ) 				
+ 				//SET THE PIPE
+ 				robotsonar.
+ 				subscribeLocalActor("datacleaner").
+ 				subscribeLocalActor("distancefilter").
+ 				subscribeLocalActor("basicrobot")		//in order to perceive obstacle
+ 			}
+ 		#]
+ 		updateResource [# "stopped" #]
+ 		discardMsg Off  //WE want receive any msg
+ 	}
+	Goto work
+	
+	State work{ 
+		 println("--basicRobot | work")
+	} 
+	Transition t1   whenMsg     cmd       -> execcmd
+					whenRequest step      -> doStep
+				  	whenMsg     end       -> endwork			  
+	
+	
+	
+	State execcmd{
+ 		println("--basicRobot | execcmd")
+		onMsg( cmd : cmd(MOVE) ){
+  			//activate the motors 
+			run unibo.robot.robotSupport.move( payloadArg(0 ) )
+			updateResource [# "movedone(${payloadArg(0)})" #]
+		}
+	 }
+	 Goto work  
+
+   	State doStep{ 
+ 		println("--basicRobot | doStep")  
+		onMsg( step : step( T ) ){  
+			[#	StepTime = payloadArg(0).toLong() 	#]  
+			updateResource [# "step(${StepTime})" #]
+			//println("basicrobot | doStep StepTime =$StepTime ")
+ 			run unibo.robot.robotSupport.move( "w" )
+ 			memoCurrentTime StartTime  
+		}  
+	}  
+	Transition t0 
+		whenTimeVar StepTime      -> stepPerhapsDone	
+		whenEvent  obstacle       -> stepFail		 
+  	
+ 	State stepPerhapsDone{ 
+ 		println("--basicRobot | stepPerhapsDone")
+ 		run unibo.robot.robotSupport.move( "h" )  //stop the robot
+  	}
+ 	Transition t0 whenTimeVar StepTime    -> stepDone  //StepTime is the worst case
+ 				  whenEvent obstacle      -> stepFailDetected
+	
+	State stepDone{   
+ 		println("--basicRobot | stepDone")
+ 		run unibo.robot.robotSupport.move( "h" )  //stop the robot
+		updateResource [# "stepDone($StepTime)" #]
+   		replyTo step with stepdone : stepdone(ok)
+  	}
+	Goto work  
+	
+	State stepFailDetected{
+ 		println("--basicRobot | stepFailDetected")
+		replyTo step with stepfail : stepfail($StepTime, obstacle)
+    }
+	Goto work 
+	 
+	State stepFail{  
+ 		println("--basicRobot | stepFail")
+		setDuration Duration from StartTime
+ 		updateResource [# "stepFail($Duration)" #]
+		emit obstacle : obstacle(unknown) 
+ 		replyTo step with stepfail : stepfail($Duration, obstacle)
+    }
+	Goto work 
+	
+	State endwork{ 
+		println("--basicRobot | endwork")
+		onMsg( end : end( V ) ){ 
+			updateResource [# "move(end)" #]	 		
+			run utils.virtualRobotSupportQak.terminatevr( )
+		}
+ 		emit endall : endall(normal) 
+ 		terminate 1
+	}  
+}

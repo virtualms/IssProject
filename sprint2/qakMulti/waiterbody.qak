@@ -1,0 +1,338 @@
+System waiterbody
+
+//MQTT
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+//MESSAGES
+//for walker
+Request moveToEntrance : moveToEntrance(ARG) 
+Request moveToTable : moveToTable(TABLE) 
+Request moveToBarman : moveToBarman(ARG) 
+Request moveToExit : moveToExit(ARG) 
+Request moveToHome : moveToHome(ARG) 
+
+Reply moveOk : moveOk(ARG)
+
+//tearoom management
+Request tableToClean: tableToClean(OK) 
+Reply dirtyTable: dirtyTable(TABLE) 
+
+Request startTimer: startTimer(OK) 
+Reply   timeOver: timeOver(TABLE) 
+Dispatch stopTime: stopTimer(OK) 
+
+Request makeTea : makeTea( TEA, TABLE ) 
+Reply teaReady : teaReady( TEA , TABLE) 
+
+Request readyToPay: readyToPay(TABLE) 
+Request readyToOrder: readyToOrder(TABLE) 
+Reply   atTable: atTable(TABLE) 
+Dispatch moneyCollected: moneyCollected(AMOUNT) 
+
+Dispatch newClient: newClient(ID) 
+
+//for tearoom.qak
+Request calculateTime: calculateTime(OK)
+Reply time: time(TIME)
+
+Request tableToClean: tableToClean(OK)
+Reply dirtyTable: dirtyTable(TABLE)
+
+Request updateDirty: updateDirty(TABLE)
+Reply dirtyUpdated: dirtyUpdated(OK)
+
+Request updateClean: updateClean(TABLE)
+Reply cleanUpdated: cleanUpdated(OK)
+
+Request updateTaken: updateTaken(OK)
+Reply takenUpdated: takenUpdated(TABLE)
+
+//order
+Dispatch order: order(TEA, TABLE)
+
+//CONTEXT
+Context ctxwaitermind ip [host="localhost" port=8020]
+Context ctxwaiterbody ip [host="localhost" port=8021]
+Context ctxtearoom ip [host="localhost" port=8040]
+Context ctxwalker ip [host="localhost" port=8022]
+Context ctxbarman ip [host="localhost" port=8030]
+
+
+//EXTERNAL
+ExternalQActor tearoom context ctxtearoom
+ExternalQActor walker context ctxwalker
+ExternalQActor barman context ctxbarman
+
+//ACTOR
+QActor waiterbody context ctxwaiterbody{
+	
+	[#
+		var GoHomeTime = 5000L
+		var TABLE = 0
+		var TEA = 0
+		
+		var CALLED = 0
+	#]
+	
+	State s0 initial{
+		discardMsg Off
+	}Goto home
+	
+	State home{
+		updateResource[# "home" #]
+		println("waiterbody | home")
+		
+		request tearoom -m tableToClean: tableToClean(OK)
+		delay 500
+		
+	}Transition t0 whenReply dirtyTable -> goToClean
+				   whenReply timeOver -> goToChaseAway
+				   whenReply teaReady -> takeTea
+				   whenRequest readyToPay -> goToCollect
+				   whenRequest readyToOrder -> goToTakeOrder
+				   whenMsg newClient -> goToEntrance
+			   
+   	State wait{
+   	   	updateResource[# "wait" #]
+   		println("waiterbody | wait")
+		
+		request tearoom -m tableToClean: tableToClean(OK)
+		delay 500
+   		
+	}Transition t0 whenTimeVar GoHomeTime -> goToHome
+				   whenReply dirtyTable -> goToClean
+				   whenReply timeOver -> goToChaseAway
+				   whenReply teaReady -> takeTea
+				   whenRequest readyToPay -> goToCollect
+				   whenRequest readyToOrder -> goToTakeOrder
+				   whenMsg newClient -> goToEntrance
+   
+   State goToEntrance{
+   		updateResource[# "goToEntrance" #]
+   		println("waiterbody | goToEntrance")
+   		request walker -m moveToEntrance: moveToEntrance(OK)
+   }Transition t0 whenReply moveOk -> convoyToTable
+   
+   State convoyToTable{
+   		updateResource[# "convoyToTable" #]
+   		println("waiterbody | covoyToTable")
+
+		request tearoom -m updateTaken: updateTaken(OK)
+   		
+   }Transition t0 whenReply takenUpdated -> goToTable
+   
+   State goToTable{
+   		updateResource[# "goToTable" #]
+   		println("waiterbody | goToTable")
+   		
+   		onMsg( takenUpdated: takenUpdated(TABLE)){
+   			[# 
+   				TABLE = payloadArg(0).toString().toInt() 
+			#]
+			request walker -m moveToTable: moveToTable($TABLE)
+		}
+   	
+   }Transition t0 whenReply moveOk -> wait
+   
+   State startTimer{
+   		println("waiterbody | startTimer")
+   		if [# TABLE == 1 #]{
+   			request timer1 -m startTimer: startTimer(OK)
+   		}
+   		else{
+   			request timer2 -m startTimer: startTimer(OK)
+   		}
+   }Goto wait
+   
+   State goToClean{
+   		updateResource[# "goToClean" #]
+   		println("waiterbody | goToClean")
+   		println("waiterbody | going to clean the table")
+   		
+		onMsg(dirtyTable : dirtyTable(TABLE)){
+
+   			[# 
+   				TABLE = payloadArg(0).toString().toInt() 
+			#]
+			request walker -m moveToTable: moveToTable($TABLE)
+			
+		}
+   }Transition t0 whenReply moveOk -> clean
+   
+   State clean{
+   		updateResource[# "clean" #]
+   		println("waiterbody | clean")
+   		println("waiterbody | cleaning the table")
+		request tearoom -m updateClean: updateClean($TABLE)
+
+   } Transition t0 whenReply cleanUpdated -> wait
+   
+   State goToCollect{
+   	   	updateResource[# "goToCollect" #]
+   		println("waiterbody | goToCollect")
+   		println("waiterbody | going to collect the money")
+		onMsg(readyToPay : readyToPay(TABLE)){
+			
+			 [#
+			 	TABLE = payloadArg(0).toString().toInt() 
+			 	CALLED = 1
+			 #]
+			 
+			 if [# TABLE == 1 #] {
+			 	forward timer1 -m stopTime: stopTime(now)
+			 }
+			 else{
+			 	forward timer2 -m stopTime: stopTime(now)
+			 }
+			 
+			 request walker -m moveToTable: moveToTable($TABLE)
+		}
+   } Transition t0 whenReply moveOk -> collect
+   
+   State goToChaseAway{
+   	   	updateResource[# "goToChaseAway" #]
+   		println("waiterbody | goToChaseAway")
+   		println("waiterbody | going to collect the money")
+		onMsg(timeOver : timeOver(TABLE)){
+			
+			 [#
+			 	TABLE = payloadArg(0).toString().toInt() 
+			 	CALLED = 0
+			 #]
+			 request walker -m moveToTable: moveToTable($TABLE)
+		}
+   }Transition t0 whenReply moveOk -> collect
+   
+   State collect{
+   	   	updateResource[# "collect" #]
+   		println("waiterbody | collect")
+   		println("waiterbody | collecting the money")
+   		
+   		if [# CALLED == 1#]{
+	   		replyTo readyToPay with atTable: atTable($TABLE)
+   		}
+
+   }Transition t0 whenMsg moneyCollected -> goToExit
+   
+   State goToExit{
+   	   	updateResource[# "goToExit" #]
+   		println("waiterbody | goToExit")
+   		println("waiterbody | convoying the client to the exit")
+   		
+   		request tearoom -m updateDirty: updateDirty($TABLE)
+   		request walker -m moveToExit: moveToExit(OK)
+   		
+   }Transition t0 whenReply moveOk -> wait
+   
+   State goToTakeOrder{
+   	   	updateResource[# "goToTakeOrder" #]
+   		println("waiterbody | goToTakeOrder")
+   		println("waiterbody | going to take the order from the Table")
+		onMsg(readyToOrder : readyToOrder(TABLE)){
+ 			 [#
+			 	TABLE = payloadArg(0).toString().toInt() 
+			 #]
+			 request walker -m moveToTable: moveToTable($TABLE)
+		}
+   		
+   } Transition t0 whenReply moveOk -> takeOrder
+   
+   State takeOrder{
+   	   	updateResource[# "takeOrder" #]
+   		println("waiterbody | takeOrder")
+   		println("waiterbody | ready to take the order")
+   		replyTo readyToOrder with atTable: atTable
+		
+   }Transition t0 whenMsg order -> sendOrder 
+	
+	
+	State sendOrder{
+   	   	updateResource[# "sendOrder" #]
+   		println("waiterbody | sendOrder")
+   		println("waiterbody | sending the order to the barman")
+		onMsg(order : order(TEA, TABLE)){
+			 [#
+			 	TEA  = payloadArg(0).toString().toInt() 
+			 	TABLE = payloadArg(1).toString().toInt() 
+			 #]
+			 request barman -m makeTea: makeTea($TEA, $TABLE)
+		}
+ 		
+	}Goto wait
+	
+	State takeTea{
+   	   	updateResource[# "takeTea" #]
+   		println("waiterbody | takeTea")
+   		println("waiterbody | going to the barman to take the tea")
+		onMsg(teaReady : teaReady(TEA, TABLE)){
+			 [#
+			 	TEA  = payloadArg(0).toString().toInt() 
+			 	TABLE = payloadArg(1).toString().toInt() 
+			 #]
+		 
+		 }
+   		request walker -m moveToBarman: moveToBarman(OK)
+		
+	}Transition t0 whenReply moveOk -> serve
+	
+	State serve{
+   	   	updateResource[# "serve" #]
+   		println("waiterbody | serve")
+   		println("waiterbody | going to serve the tea")
+   		
+   		request walker -m moveToTable: moveToTable($TABLE)
+   		
+	}Transition t0 whenReply moveOk -> startTimer
+				   
+    State goToHome{
+   	   	updateResource[# "goToHome" #]
+   		println("waiterbody | goToHome")
+   		println("waiterbody | going to home")
+   		
+    	request walker -m moveToHome: moveToHome(HOME)
+    }Transition t0 whenReply moveOk -> home
+}
+
+
+//timers
+QActor timer1 context ctxwaiterbody{
+	[# var Timer = 30000L #]
+	State s0 initial{
+		discardMsg Off	
+	}Goto wait
+	
+	State wait{
+		println("timer1 | wait")	
+	}Transition t0 whenRequest startTimer -> timer
+	
+	State timer{
+		println("timer1 | timer")	
+	}Transition t0 whenTimeVar Timer -> timeover
+				   whenMsg stopTime -> wait
+    
+    State timeover{
+    	println("timer1 | timerover")
+    	replyTo startTimer with timeOver: timeOver(1)
+    }Goto wait
+}
+
+QActor timer2 context ctxwaiterbody{
+	[# var Timer = 30000L #]
+	State s0 initial{
+		discardMsg Off	
+	}Goto wait
+	
+	State wait{
+		println("timer2 | wait")	
+	}Transition t0 whenRequest startTimer -> timer
+	
+	State timer{
+		println("timer2 | timer")	
+	}Transition t0 whenTimeVar Timer -> timeover
+				   whenMsg stopTime -> wait
+    
+    State timeover{
+    	println("timer2 | timerover")
+    	replyTo startTimer with timeOver: timeOver(2)
+    }Goto wait
+}

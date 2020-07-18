@@ -1,0 +1,16 @@
+Context ctxsmartbell ip [host="localhost" port=8010]
+
+Context ctxwaitermind ip [host="localhost" port=8020]
+Context ctxwaiterbody ip [host="localhost" port=8021]
+Context ctxwalker ip [host="localhost" port=8022]
+
+Context ctxbarman ip [host="localhost" port=8030]
+
+Context ctxtearoom ip [host="localhost" port=8040]
+
+Context ctxtimer1 ip [host="localhost" port=8051]
+Context ctxtimer2 ip [host="localhost" port=8052]
+
+Context ctxwaiterwalker ip [host="localhost" port=8060]
+
+Context ctxbasicrobot ip [host="localhost" port=8070]
