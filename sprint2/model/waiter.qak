@@ -12,7 +12,7 @@ Reply   atTable: atTable(TABLE)
 
 Dispatch order: order(TEA) 
 
-Dispatch readyToPay: readyToPay(TABLE) 
+Request readyToPay: readyToPay(TABLE) 
 Dispatch moneyCollected: moneyCollected(AMOUNT) 
 Dispatch dirtyTable: dirtyTable(TABLE) 
 
