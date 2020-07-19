@@ -87,7 +87,7 @@ QActor tearoom context ctxwaiter{
 	[# 
 		var TABLE = 0 
 		var State = ""
-		#]
+	#]
 	State s0 initial{
 		discardMsg Off
 		solve( consult("knowledgebase.pl"))
@@ -317,7 +317,6 @@ QActor waiterbody context ctxwaiter{
    }Transition t0 whenReply takenUpdated -> goToTable
    
    State goToTable{
-   		updateResource[# "goToTable" #]
    		println("waiterbody | goToTable")
    		
    		onMsg( takenUpdated: takenUpdated(TABLE)){
@@ -326,6 +325,8 @@ QActor waiterbody context ctxwaiter{
 			#]
 			request walker -m moveToTable: moveToTable($TABLE)
 		}
+		
+		updateResource[# "goToTable " + TABLE #]
    	
    }Transition t0 whenReply moveOk -> wait
    
@@ -340,10 +341,7 @@ QActor waiterbody context ctxwaiter{
    }Goto wait
    
    State goToClean{
-   		updateResource[# "goToClean" #]
    		println("waiterbody | goToClean")
-   		println("waiterbody | going to clean the table")
-   		
 		onMsg(dirtyTable : dirtyTable(TABLE)){
 
    			[# 
@@ -352,10 +350,12 @@ QActor waiterbody context ctxwaiter{
 			request walker -m moveToTable: moveToTable($TABLE)
 			
 		}
+		
+		updateResource[# "goToClean " + TABLE #]
    }Transition t0 whenReply moveOk -> clean
    
    State clean{
-   		updateResource[# "clean" #]
+   		updateResource[# "clean " + TABLE #]
    		println("waiterbody | clean")
    		println("waiterbody | cleaning the table")
 		request tearoom -m updateClean: updateClean($TABLE)
@@ -363,9 +363,7 @@ QActor waiterbody context ctxwaiter{
    } Transition t0 whenReply cleanUpdated -> wait
    
    State goToCollect{
-   	   	updateResource[# "goToCollect" #]
    		println("waiterbody | goToCollect")
-   		println("waiterbody | going to collect the money")
 		onMsg(readyToPay : readyToPay(TABLE)){
 			
 			 [#
@@ -382,12 +380,11 @@ QActor waiterbody context ctxwaiter{
 			 
 			 request walker -m moveToTable: moveToTable($TABLE)
 		}
+		updateResource[# "goToCollect " + TABLE #]
    } Transition t0 whenReply moveOk -> collect
    
    State goToChaseAway{
-   	   	updateResource[# "goToChaseAway" #]
    		println("waiterbody | goToChaseAway")
-   		println("waiterbody | going to collect the money")
 		onMsg(timeOver : timeOver(TABLE)){
 			
 			 [#
@@ -396,14 +393,15 @@ QActor waiterbody context ctxwaiter{
 			 #]
 			 request walker -m moveToTable: moveToTable($TABLE)
 		}
+   	   	updateResource[# "goToChaseAway " + TABLE #]
    }Transition t0 whenReply moveOk -> collect
    
    State collect{
-   	   	updateResource[# "collect" #]
+   	   	updateResource[# "collect " + TABLE #]
    		println("waiterbody | collect")
    		println("waiterbody | collecting the money")
    		
-   		if [# CALLED == 1#]{
+   		if [# CALLED == 1 #]{
 	   		replyTo readyToPay with atTable: atTable($TABLE)
    		}
 
@@ -471,7 +469,7 @@ QActor waiterbody context ctxwaiter{
 	}Transition t0 whenReply moveOk -> serve
 	
 	State serve{
-   	   	updateResource[# "serve" #]
+   	   	updateResource[# "serve " + TABLE #]
    		println("waiterbody | serve")
    		println("waiterbody | going to serve the tea")
    		
@@ -514,6 +512,7 @@ QActor barman context ctxwaiter {
 			 	TEA  = payloadArg(0).toString().toInt() 
 			 	TABLE = payloadArg(1).toString().toInt() 
 			 #]
+			 delay 4000
 			 replyTo makeTea with teaReady: teaReady($TEA, $TABLE)
 		}
 	}
