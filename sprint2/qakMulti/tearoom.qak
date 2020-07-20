@@ -19,6 +19,9 @@ Reply cleanUpdated: cleanUpdated(OK)
 Request updateTaken: updateTaken(OK) 
 Reply takenUpdated: takenUpdated(TABLE) 
 
+Request checkTableState: checkTableState(TABLE) 
+Reply tableState: tableState(OK) 
+
 //CONTEXT
 Context ctxtearoom ip [host="localhost" port=8040]
 
@@ -28,8 +31,9 @@ Context ctxtearoom ip [host="localhost" port=8040]
 QActor tearoom context ctxtearoom{
 	[# 
 		var TABLE = 0 
+		var TableState = ""
 		var State = ""
-		#]
+	#]
 	State s0 initial{
 		discardMsg Off
 		solve( consult("knowledgebase.pl"))
@@ -44,10 +48,11 @@ QActor tearoom context ctxtearoom{
 		
 	}Transition t0 whenRequest calculateTime -> waitTime
 				   whenRequest tableToClean -> tableToClean
+				   whenRequest checkTableState -> checkTableState
 				   whenRequest updateDirty -> dirty
 				   whenRequest updateClean -> clean
 				   whenRequest updateTaken -> taken
-   
+  
    State waitTime{
    	println("tearoom | waitTime")
    			solve(teatable(X, clean))
@@ -74,6 +79,21 @@ QActor tearoom context ctxtearoom{
 		ifSolved{ replyTo tableToClean with dirtyTable: dirtyTable(1) }
 		solve( teatable(2, dirty))
 		ifSolved{ replyTo tableToClean with dirtyTable: dirtyTable(2) }
+   }Goto wait
+   
+   State checkTableState{
+		onMsg(checkTableState: checkTableState(TABLE)){
+			[# 
+				TABLE = payloadArg(0).toString().toInt()
+			#]
+   			solve(teatable($TABLE, X))
+   			ifSolved { 
+   				[# TableState = getCurSol("X").toString() #]
+   			}
+   			
+   			replyTo checkTableState with tableState: tableState($TableState)
+   			
+   		}
    }Goto wait
    
    State dirty{

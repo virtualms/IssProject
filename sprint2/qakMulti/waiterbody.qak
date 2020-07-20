@@ -17,14 +17,13 @@ Reply moveOk : moveOk(ARG)
 Request tableToClean: tableToClean(OK) 
 Reply dirtyTable: dirtyTable(TABLE) 
 
-Request startTimer: startTimer(OK) 
-Reply   timeOver: timeOver(TABLE) 
+Dispatch startTimer: startTimer(OK) 
 Dispatch stopTime: stopTimer(OK) 
 
 Request makeTea : makeTea( TEA, TABLE ) 
 Reply teaReady : teaReady( TEA , TABLE) 
 
-Request readyToPay: readyToPay(TABLE) 
+Dispatch readyToPay: readyToPay(TABLE) 
 Request readyToOrder: readyToOrder(TABLE) 
 Reply   atTable: atTable(TABLE) 
 Dispatch moneyCollected: moneyCollected(AMOUNT) 
@@ -32,9 +31,6 @@ Dispatch moneyCollected: moneyCollected(AMOUNT)
 Dispatch newClient: newClient(ID) 
 
 //for tearoom.qak
-Request calculateTime: calculateTime(OK)
-Reply time: time(TIME)
-
 Request tableToClean: tableToClean(OK)
 Reply dirtyTable: dirtyTable(TABLE)
 
@@ -46,6 +42,9 @@ Reply cleanUpdated: cleanUpdated(OK)
 
 Request updateTaken: updateTaken(OK)
 Reply takenUpdated: takenUpdated(TABLE)
+
+Request checkTableState: checkTableState(TABLE) 
+Reply tableState: tableState(OK) 
 
 //order
 Dispatch order: order(TEA, TABLE)
@@ -68,10 +67,12 @@ QActor waiterbody context ctxwaiterbody{
 	
 	[#
 		var GoHomeTime = 5000L
+		
 		var TABLE = 0
 		var TEA = 0
 		
-		var CALLED = 0
+		var StateTable = ""
+		
 	#]
 	
 	State s0 initial{
@@ -86,12 +87,11 @@ QActor waiterbody context ctxwaiterbody{
 		delay 500
 		
 	}Transition t0 whenReply dirtyTable -> goToClean
-				   whenReply timeOver -> goToChaseAway
-				   whenReply teaReady -> takeTea
-				   whenRequest readyToPay -> goToCollect
-				   whenRequest readyToOrder -> goToTakeOrder
-				   whenMsg newClient -> goToEntrance
-			   
+	 			   whenMsg newClient -> goToEntrance
+	 			   whenRequest readyToOrder -> goToTakeOrder
+   				   whenReply teaReady -> takeTea
+				   whenMsg readyToPay -> checkTableState
+				  		   
    	State wait{
    	   	updateResource[# "wait" #]
    		println("waiterbody | wait")
@@ -101,29 +101,27 @@ QActor waiterbody context ctxwaiterbody{
    		
 	}Transition t0 whenTimeVar GoHomeTime -> goToHome
 				   whenReply dirtyTable -> goToClean
-				   whenReply timeOver -> goToChaseAway
-				   whenReply teaReady -> takeTea
-				   whenRequest readyToPay -> goToCollect
-				   whenRequest readyToOrder -> goToTakeOrder
-				   whenMsg newClient -> goToEntrance
+	 			   whenMsg newClient -> goToEntrance
+	 			   whenRequest readyToOrder -> goToTakeOrder
+   				   whenReply teaReady -> takeTea
+				   whenMsg readyToPay -> checkTableState
    
    State goToEntrance{
    		updateResource[# "goToEntrance" #]
    		println("waiterbody | goToEntrance")
    		request walker -m moveToEntrance: moveToEntrance(OK)
-   }Transition t0 whenReply moveOk -> convoyToTable
+   }Transition t0 whenReply moveOk -> bookTable
    
-   State convoyToTable{
-   		updateResource[# "convoyToTable" #]
-   		println("waiterbody | covoyToTable")
+   State bookTable{
+   		updateResource[# "bookTable" #]
+   		println("waiterbody | bookTable")
 
 		request tearoom -m updateTaken: updateTaken(OK)
    		
-   }Transition t0 whenReply takenUpdated -> goToTable
+   }Transition t0 whenReply takenUpdated -> convoyToTable
    
-   State goToTable{
-   		updateResource[# "goToTable" #]
-   		println("waiterbody | goToTable")
+   State convoyToTable{
+   		println("waiterbody | convoyToTable")
    		
    		onMsg( takenUpdated: takenUpdated(TABLE)){
    			[# 
@@ -131,24 +129,13 @@ QActor waiterbody context ctxwaiterbody{
 			#]
 			request walker -m moveToTable: moveToTable($TABLE)
 		}
+		
+		updateResource[# "convoyToTable " + TABLE #]
    	
    }Transition t0 whenReply moveOk -> wait
    
-   State startTimer{
-   		println("waiterbody | startTimer")
-   		if [# TABLE == 1 #]{
-   			request timer1 -m startTimer: startTimer(OK)
-   		}
-   		else{
-   			request timer2 -m startTimer: startTimer(OK)
-   		}
-   }Goto wait
-   
    State goToClean{
-   		updateResource[# "goToClean" #]
    		println("waiterbody | goToClean")
-   		println("waiterbody | going to clean the table")
-   		
 		onMsg(dirtyTable : dirtyTable(TABLE)){
 
    			[# 
@@ -157,67 +144,61 @@ QActor waiterbody context ctxwaiterbody{
 			request walker -m moveToTable: moveToTable($TABLE)
 			
 		}
+		
+		updateResource[# "goToClean " + TABLE #]
    }Transition t0 whenReply moveOk -> clean
    
    State clean{
-   		updateResource[# "clean" #]
+   		updateResource[# "clean " + TABLE #]
    		println("waiterbody | clean")
-   		println("waiterbody | cleaning the table")
 		request tearoom -m updateClean: updateClean($TABLE)
 
    } Transition t0 whenReply cleanUpdated -> wait
    
-   State goToCollect{
-   	   	updateResource[# "goToCollect" #]
-   		println("waiterbody | goToCollect")
-   		println("waiterbody | going to collect the money")
+   State checkTableState{
+   		println("waiterbody | checkTableState")
 		onMsg(readyToPay : readyToPay(TABLE)){
-			
-			 [#
-			 	TABLE = payloadArg(0).toString().toInt() 
-			 	CALLED = 1
-			 #]
-			 
-			 if [# TABLE == 1 #] {
-			 	forward timer1 -m stopTime: stopTime(now)
-			 }
-			 else{
-			 	forward timer2 -m stopTime: stopTime(now)
-			 }
-			 
-			 request walker -m moveToTable: moveToTable($TABLE)
+		
+		 [#
+		 	TABLE = payloadArg(0).toString().toInt() 
+		 #]
 		}
+		
+		 if [# TABLE == 1 #] {
+		 	forward timer1 -m stopTime: stopTime(now)
+		 }
+		 else{
+		 	forward timer2 -m stopTime: stopTime(now)
+		 }
+		 
+		request tearoom -m checkTableState: checkTableState($TABLE)
+   }Transition t0 whenReply tableState -> checkState
+   
+   State checkState{
+   		println("waiterbody | checkState")
+		onMsg(tableState : tableState(STATE)){
+		 [#
+		 	StateTable = payloadArg(0).toString()
+		 #]
+		}
+   }Goto goToCollect if [# StateTable == "taken" #] else wait
+   
+   State goToCollect{
+   		println("waiterbody | goToCollect")
+
+		request walker -m moveToTable: moveToTable($TABLE)
+		updateResource[# "goToCollect " + TABLE #]
    } Transition t0 whenReply moveOk -> collect
    
-   State goToChaseAway{
-   	   	updateResource[# "goToChaseAway" #]
-   		println("waiterbody | goToChaseAway")
-   		println("waiterbody | going to collect the money")
-		onMsg(timeOver : timeOver(TABLE)){
-			
-			 [#
-			 	TABLE = payloadArg(0).toString().toInt() 
-			 	CALLED = 0
-			 #]
-			 request walker -m moveToTable: moveToTable($TABLE)
-		}
-   }Transition t0 whenReply moveOk -> collect
-   
    State collect{
-   	   	updateResource[# "collect" #]
+   	   	updateResource[# "collect " + TABLE #]
    		println("waiterbody | collect")
-   		println("waiterbody | collecting the money")
-   		
-   		if [# CALLED == 1#]{
-	   		replyTo readyToPay with atTable: atTable($TABLE)
-   		}
 
    }Transition t0 whenMsg moneyCollected -> goToExit
    
    State goToExit{
    	   	updateResource[# "goToExit" #]
    		println("waiterbody | goToExit")
-   		println("waiterbody | convoying the client to the exit")
    		
    		request tearoom -m updateDirty: updateDirty($TABLE)
    		request walker -m moveToExit: moveToExit(OK)
@@ -225,28 +206,24 @@ QActor waiterbody context ctxwaiterbody{
    }Transition t0 whenReply moveOk -> wait
    
    State goToTakeOrder{
-   	   	updateResource[# "goToTakeOrder" #]
    		println("waiterbody | goToTakeOrder")
-   		println("waiterbody | going to take the order from the Table")
 		onMsg(readyToOrder : readyToOrder(TABLE)){
  			 [#
 			 	TABLE = payloadArg(0).toString().toInt() 
 			 #]
 			 request walker -m moveToTable: moveToTable($TABLE)
 		}
-   		
+   	   	updateResource[# "goToTakeOrder " + TABLE #]
    } Transition t0 whenReply moveOk -> takeOrder
    
    State takeOrder{
-   	   	updateResource[# "takeOrder" #]
+   	   	updateResource[# "takeOrder " + TABLE #]
    		println("waiterbody | takeOrder")
-   		println("waiterbody | ready to take the order")
    		replyTo readyToOrder with atTable: atTable
 		
    }Transition t0 whenMsg order -> sendOrder 
 	
-	
-	State sendOrder{
+   State sendOrder{
    	   	updateResource[# "sendOrder" #]
    		println("waiterbody | sendOrder")
    		println("waiterbody | sending the order to the barman")
@@ -260,7 +237,7 @@ QActor waiterbody context ctxwaiterbody{
  		
 	}Goto wait
 	
-	State takeTea{
+   State takeTea{
    	   	updateResource[# "takeTea" #]
    		println("waiterbody | takeTea")
    		println("waiterbody | going to the barman to take the tea")
@@ -275,16 +252,26 @@ QActor waiterbody context ctxwaiterbody{
 		
 	}Transition t0 whenReply moveOk -> serve
 	
-	State serve{
-   	   	updateResource[# "serve" #]
+   State serve{
+   	   	updateResource[# "serve " + TABLE #]
    		println("waiterbody | serve")
    		println("waiterbody | going to serve the tea")
    		
    		request walker -m moveToTable: moveToTable($TABLE)
    		
 	}Transition t0 whenReply moveOk -> startTimer
-				   
-    State goToHome{
+		
+   State startTimer{
+   		println("waiterbody | startTimer")
+   		if [# TABLE == 1 #]{
+   			forward timer1 -m startTimer: startTimer(OK)
+   		}
+   		else{
+   			forward timer2 -m startTimer: startTimer(OK)
+   		}
+   }Goto wait
+   			   
+   State goToHome{
    	   	updateResource[# "goToHome" #]
    		println("waiterbody | goToHome")
    		println("waiterbody | going to home")
@@ -293,17 +280,15 @@ QActor waiterbody context ctxwaiterbody{
     }Transition t0 whenReply moveOk -> home
 }
 
-
-//timers
 QActor timer1 context ctxwaiterbody{
 	[# var Timer = 30000L #]
 	State s0 initial{
-		discardMsg Off	
+		discardMsg On	
 	}Goto wait
 	
 	State wait{
 		println("timer1 | wait")	
-	}Transition t0 whenRequest startTimer -> timer
+	}Transition t0 whenMsg startTimer -> timer
 	
 	State timer{
 		println("timer1 | timer")	
@@ -312,19 +297,19 @@ QActor timer1 context ctxwaiterbody{
     
     State timeover{
     	println("timer1 | timerover")
-    	replyTo startTimer with timeOver: timeOver(1)
+    	forward waiterbody -m readyToPay: readyToPay(1)
     }Goto wait
 }
 
 QActor timer2 context ctxwaiterbody{
 	[# var Timer = 30000L #]
 	State s0 initial{
-		discardMsg Off	
+		discardMsg On	
 	}Goto wait
 	
 	State wait{
 		println("timer2 | wait")	
-	}Transition t0 whenRequest startTimer -> timer
+	}Transition t0 whenMsg startTimer -> timer
 	
 	State timer{
 		println("timer2 | timer")	
@@ -333,6 +318,6 @@ QActor timer2 context ctxwaiterbody{
     
     State timeover{
     	println("timer2 | timerover")
-    	replyTo startTimer with timeOver: timeOver(2)
+    	forward waiterbody -m readyToPay: readyToPay(2)
     }Goto wait
 }
