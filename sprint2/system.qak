@@ -55,7 +55,7 @@ Reply teaReady : teaReady( TEA , TABLE)
 Request readyToOrder: readyToOrder(TABLE)
 Reply   atTable: atTable(TABLE)
 
-Dispatch readyToPay: readyToPay(TABLE)
+Request readyToPay: readyToPay(TABLE)
 
 Dispatch moneyCollected: moneyCollected(AMOUNT)
 
@@ -208,7 +208,7 @@ QActor timer1 context ctxwaiter{
     
     State timeover{
     	println("timer1 | timerover")
-    	forward waiterbody -m readyToPay: readyToPay(1)
+    	request waiterbody -m readyToPay: readyToPay(1)
     }Goto wait
 }
 
@@ -229,7 +229,7 @@ QActor timer2 context ctxwaiter{
     
     State timeover{
     	println("timer2 | timerover")
-    	forward waiterbody -m readyToPay: readyToPay(2)
+    	request waiterbody -m readyToPay: readyToPay(2)
     }Goto wait
 }
 
@@ -305,7 +305,7 @@ QActor waiterbody context ctxwaiter{
 	 			   whenMsg newClient -> goToEntrance
 	 			   whenRequest readyToOrder -> goToTakeOrder
    				   whenReply teaReady -> takeTea
-				   whenMsg readyToPay -> checkTableState
+				   whenRequest readyToPay -> checkTableState
 				  		   
    	State wait{
    	   	updateResource[# "wait" #]
@@ -319,7 +319,7 @@ QActor waiterbody context ctxwaiter{
 	 			   whenMsg newClient -> goToEntrance
 	 			   whenRequest readyToOrder -> goToTakeOrder
    				   whenReply teaReady -> takeTea
-				   whenMsg readyToPay -> checkTableState
+				   whenRequest readyToPay -> checkTableState
    
    State goToEntrance{
    		updateResource[# "goToEntrance" #]
@@ -408,7 +408,7 @@ QActor waiterbody context ctxwaiter{
    State collect{
    	   	updateResource[# "collect " + TABLE #]
    		println("waiterbody | collect")
-
+   		replyTo readyToPay with atTable: atTable($TABLE)
    }Transition t0 whenMsg moneyCollected -> goToExit
    
    State goToExit{
@@ -941,4 +941,3 @@ QActor waiterwalker context ctxwaiter{
 	}  
 	   
 }
-
