@@ -44,6 +44,7 @@ QActor waiter context ctxwaiter{
 				   whenRequest readyToPay -> collect
 				   whenRequest readyToOrder -> takeOrder   
 				   whenMsg newClient -> convoyToTable
+				   whenRequest waitTime -> calculateWaitTime
 				   //when timer -> collect
 			   	   
    	State wait{
