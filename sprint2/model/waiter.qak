@@ -96,7 +96,7 @@ QActor waiter context ctxwaiter{
    	   	updateResource[# "goToExit" #]
    		println("waiter | goToExit")
    		println("waiter | convoying the client to the exit")
-   		
+   		//Go to exit
    		
    }Goto wait
    
