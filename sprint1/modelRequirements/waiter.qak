@@ -1,0 +1,231 @@
+System waiter
+
+// BROKER
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+// DISPATCH REQUEST/REPLY AND EVENT
+
+//Waiter
+Event newClient : newClient(ID)
+Event endCons: endCons(OK)
+Event teaReady: orderReady(TEA, TABLE)
+Event makeTea: makeTea(TEA, TABLE)
+
+Dispatch newClientWait : newClientWait(TIME)
+Dispatch atTable: atTable(OK)
+Dispatch clientReady : clientReady(OK)
+Dispatch paymentOK: paymentOK(OK)
+Dispatch waiterReady: waiterReady(OK)
+Dispatch callWaiter : callWaiter(OK)
+Dispatch order: order(TEA)
+Dispatch orderDelivered: orderDelivered(OK)
+Dispatch dirtyTable: dirtyTable(OK)
+
+Dispatch end       	: end(ARG) 
+
+Reply moveOk : moveOk(ARG)
+
+// CONTEXT
+Context ctxwaiter ip [host="localhost" port=8090]  
+//Context ctxbarman ip [host="127.0.0.1" port=8060]
+Context ctxsmartbell ip [host="127.0.0.1" port=8050]
+
+//CODEDQACTOR
+ExternalQActor client context ctxsmartbell
+//ExternalQActor barman context ctxwaiter
+ExternalQActor smartbell context ctxsmartbell
+
+
+//ACTOR
+QActor waiter context ctxwaiter{
+	// Variabili
+	[#
+			var tavolo1
+			//var tavolo2
+			var waitValue = 10000
+	#]
+
+	// Stato iniziale
+	State s0 initial{
+		println("---waiter | s0")
+		
+		discardMsg Off
+	}
+	Goto wait
+	
+	State wait{
+		updateResource[# "waiting" #]
+		println("---waiter | wait")		
+		// aspetto per un'azione da fare
+		// scaduto waitValue torno a Home
+		
+		//if [# tavolo = dirty # ] automsg dirtyTable;
+		
+	}
+	Transition t0 
+				  whenTimeVar WaitValue -> goHome
+				  whenMsg dirtyTable -> clean
+  				  whenEvent newClient -> client
+			      whenMsg callWaiter -> getOrder
+			      whenEvent teaReady -> serve  
+			  
+	State client{
+		updateResource[# "newClient" #]
+		println("---waiter | client")
+		
+		onMsg(newClient : newClient(ID)){
+			
+			[# 
+				ARG = payloadArg(0)
+			 #]
+			
+		println("---waiter | NUOVO CLIENTE CON ID: $ARG")	
+		// comunico con lo smart bell dicendogli quanto debba aspettare il cliente
+		
+		//if deve aspettare -> calcolo tempo massimo e glielo comunico oppure gli dico tempo di attesa 0
+		//(lo accolgo appena possibile)
+
+		//Assumendo che ci sia un solo cliente (waitTime = 0)
+		forward smartbell -m newClientWait: newClientWait(0)
+		}
+	}
+	//vado in enter perchè c'è solo un client
+	Goto enter
+	
+	State enter{
+		println("---waiter | enter")
+		// vado alla porta, prendo il client e lo faccio accomodare a un tavolo
+		// forward client -m atTable: atTable(ok), il cliente è al tavolo e può decidere cosa ordinare
+	}
+//	Transition t0
+		Goto wait
+//		whenReply moveOk -> atEntrance
+		
+//	State atEntrance{
+//		println("---waiter | atEntrance")
+//		//vado al tavolo
+//	} Transition t0
+//		whenReply moveOk -> atTableFromEntrance
+//		
+//	State atTableFromEntrance{
+//		println("---waiter | atTableFromEntrance")
+//		delay 2000
+//		forward client -m atTable: atTable(ok)
+//	}
+//	Goto wait 
+	
+	State getOrder{
+		updateResource[# "orderManagement" #]
+		println("---waiter | getOrder")
+		// vado al tavolo che vuole ordinare e prendo l'ordine
+		
+	}
+	//Transition t1 whenReply moveOk -> waitingOrder
+	Transition t2 whenMsg order -> sendOrder
+	
+//	State waitingOrder{
+//		println("---waiter | waitingOrder")
+//		
+//		forward client -m waiterReady: waiterReady(OK)
+//	}
+//	Transition t1 
+//		whenMsg order -> sendOrder
+	
+	State sendOrder{
+	// invio l'ordine al barman
+	println("---waiter | sendOrder")
+	onMsg(order: order(TEA)){
+			
+			[# 
+				ARG = payloadArg(0)
+			 #]
+			 
+			println("---waiter | invio l'ordine del $ARG al barista")
+			emit makeTea: makeTea($ARG, 1)
+		}
+	
+	}
+	Goto wait
+	
+	State serve{
+		updateResource[# "serving" #]
+		println("---waiter | serve")
+		// vado dal barman per prendere l'ordine e lo porto al tavolo
+	}
+	//Transition t0 whenReply moveOk -> atBarman
+	Goto endOrder
+			
+	
+//	State atBarman{
+//		println("---waiter | atBarman")
+//		//prendo l'ordine da barman
+//	} 
+//	Transition t0 whenReply moveOk -> atTableFromBarman
+//	Goto atTableFromBarman
+		
+//	State atTableFromBarman{
+//		println("---waiter | ordine portato al tavolo")
+//		forward client -m orderDelivered: orderDelivered(OK)
+//	}Goto endOrder
+	
+	State endOrder {
+	    println("---waiter | endOrder")
+	    //consegno l'ordine al client ed aspetto che finisca o che finisca
+	    //il tempo a disposizione del client
+	} Transition t0 whenTimeVar MaxTime -> askToCollect
+					//whenMsg endCons -> collect
+					whenEvent endCons -> collect
+		
+	State askToCollect{
+		println("---waiter | askToCollect")
+		//il client ha finito
+		emit endCons : GOOUT		
+	}
+	Goto collect		
+	
+	State collect{
+		updateResource[# "endClient" #]
+		println("---waiter | collect")
+		// vado al tavolo per prendere il pagamento dal client
+		
+		[#
+			tavolo1 = dirty
+		#]
+		
+	}
+	//Transition t0 whenReply moveOk -> exit
+	Goto exit
+	
+	State exit{
+		println("---waiter | exit")
+		// accompagno il client all'uscita
+	}
+	//Transition t0 whenReply moveOk -> endExit
+	Goto endExit
+	
+	State endExit{
+		println("---waiter | endExit")
+		// pagamento effettuato con successo
+		forward client -m paymentOK: paymentOK
+	}
+	Goto wait
+	
+	State clean{
+		updateResource[# "cleaning" #]
+		println("---waiter | clean")
+
+		delay 8000
+		[#
+			tavolo1 = clean
+		#]
+			
+	}
+	//Transition t0 whenReply moveOk -> wait
+	Goto wait
+	
+	State goHome{
+		println("---waiter | goHome")
+	}
+	Goto wait
+	//Transition t0 whenReply moveOk -> wait
+}
