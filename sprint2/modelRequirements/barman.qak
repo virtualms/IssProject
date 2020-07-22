@@ -1,0 +1,34 @@
+System waiter
+
+Request makeTea : makeTea( TEA, TABLE ) 
+Reply teaReady : teaReady( TEA , TABLE) 
+
+Context ctxbarman ip [host="localhost" port=8010]
+
+QActor barman context ctxbarman {
+	[#
+		var TABLE = 0
+		var TEA = 0
+	
+	#]
+	State s0 initial {
+		println("Barman | s0")
+		discardMsg Off
+	} Goto waiting
+	
+	State waiting{
+		updateResource[# "wait" #]
+		println("Barman | waiting")
+		
+	}
+	Transition t0 whenRequest makeTea -> makingTea
+	
+	State makingTea {
+		println("Barman | making tea")
+		
+		//making tea
+		delay 500 
+		replyTo makeTea with teaReady: teaReady($TEA, $TABLE)
+	}
+	Goto waiting
+}
