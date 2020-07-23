@@ -337,7 +337,11 @@ QActor waiterbody context ctxwaiter{
    		
 		request walker -m moveToTable: moveToTable($TABLE)
    	
-   }Transition t0 whenReply moveOk -> wait
+   }Transition t0 whenReply moveOk -> atTable
+   
+   State atTable{
+   		updateResource[# "atTable " + TABLE #]
+   }	Goto wait
    
    State goToClean{
    		println("waiterbody | goToClean")
@@ -928,4 +932,3 @@ QActor waiterwalker context ctxwaiter{
 	}  
 	   
 }
-
