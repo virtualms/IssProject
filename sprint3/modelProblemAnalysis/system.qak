@@ -322,7 +322,6 @@ QActor waiterbody context ctxwaiter{
 		updateResource[# "home" #]
 		println("waiterbody | home")
 		
-		request tearoom -m tableToClean: tableToClean(OK)
 		delay 500
 		
 	}Transition t0 whenReply tableToClear -> goToClear
@@ -336,12 +335,12 @@ QActor waiterbody context ctxwaiter{
    	   	updateResource[# "wait" #]
    		println("waiterbody | wait")
 		
-		request tearoom -m tableToClean: tableToClean(OK)
 		delay 500
    		
 	}Transition t0 whenTimeVar GoHomeTime -> goToHome
 				   whenReply tableToClear -> goToClear
 				   whenReply tableToSanitize -> goToSanitize
+				   whenMsg newClient -> goToEntrance
 	 			   whenRequest readyToOrder -> goToTakeOrder
    				   whenReply teaReady -> takeTea
 				   whenRequest readyToPay -> checkTableState
@@ -393,6 +392,7 @@ QActor waiterbody context ctxwaiter{
    		println("waiterbody | clear")
    		delay 5000
 		request tearoom -m updateClear: updateClear($TABLE)
+		request tearoom -m tableToClean: tableToClean(OK)
 
    } Transition t0 whenReply clearUpdated -> wait
    
@@ -416,6 +416,7 @@ QActor waiterbody context ctxwaiter{
    		println("waiterbody | sanitize")
    		delay 5000
 		request tearoom -m updateSanitize: updateSanitize($TABLE)
+		request tearoom -m tableToClean: tableToClean(OK)
 
    } Transition t0 whenReply sanitizeUpdated -> wait
    
@@ -467,7 +468,12 @@ QActor waiterbody context ctxwaiter{
    		request tearoom -m updateDirty: updateDirty($TABLE)
    		request walker -m moveToExit: moveToExit(OK)
    		
-   }Transition t0 whenReply moveOk -> wait
+   }Transition t0 whenReply moveOk -> exit
+   
+   State exit{
+   		println("waiterbody | exit")
+		request tearoom -m tableToClean: tableToClean(OK)
+   }Goto wait
    
    State goToTakeOrder{
    		println("waiterbody | goToTakeOrder")
