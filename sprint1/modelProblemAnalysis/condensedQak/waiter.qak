@@ -6,10 +6,10 @@ mqttBroker "localhost": 1883 eventTopic "unibo/polar"
 // DISPATCH REQUEST/REPLY AND EVENT
 
 //Waiter
-Event newClient : newClient(ID)
-Event endCons: endCons(OK)
-Event teaReady: orderReady(TEA, TABLE)
-Event makeTea: makeTea(TEA, TABLE)
+Dispatch newClient : newClient(ID)
+Dispatch endCons: endCons(OK)
+Request makeTea: makeTea(TEA, TABLE)
+Reply teaReady: orderReady(TEA, TABLE)
 
 Dispatch newClientWait : newClientWait(TIME)
 Dispatch atTable: atTable(OK)
@@ -55,7 +55,7 @@ Context ctxsmartbell ip [host="127.0.0.1" port=8050]
 
 //CODEDQACTOR
 ExternalQActor client context ctxsmartbell
-//ExternalQActor barman context ctxwaiter
+ExternalQActor barman context ctxwaiter
 ExternalQActor smartbell context ctxsmartbell
 
 // Servono al BasicRobot
@@ -86,7 +86,7 @@ QActor waiter context ctxwaiter{
 		println("---waiter | wait")		
 		// aspetto per un messaggio
 		
-		// if c'è un cliente in attesa e c'è un tavolo libero e pulito
+		// if c'Ã¨ un cliente in attesa e c'Ã¨ un tavolo libero e pulito
 		//forward waiter -m clientReady: clientReady(id)
 		
 		if[# dirtyTable != 0 #] {
@@ -98,10 +98,10 @@ QActor waiter context ctxwaiter{
 			  
 				  whenMsg dirtyTable -> clean
 				  
-  				  whenEvent newClient -> client
+  				  whenMsg newClient -> client
 			      
 			      whenMsg callWaiter -> getOrder
-			      whenEvent teaReady -> serve  
+			      whenReply teaReady -> serve  
 			  
 	State client{
 		updateResource[# "newClient" #]
@@ -113,7 +113,7 @@ QActor waiter context ctxwaiter{
 			 #]
 			
 			println("---waiter | NUOVO CLIENTE CON ID: $ARG (ma questo id come lo uso??)")	
-		// comunico con lo smart bell dicendogli se il cliente deve aspettare o se è ok
+		// comunico con lo smart bell dicendogli se il cliente deve aspettare o se Ã¨ ok
 		// metto un cliente nella mia coda
 		
 		//if deve aspettare -> calcolo tempo massimo e glie lo do oppure gli dico tempo di attesa 0
@@ -124,7 +124,7 @@ QActor waiter context ctxwaiter{
 		forward smartbell -m newClientWait: newClientWait(0)
 		}
 	}
-	//vado in enter perchè c'è solo un client
+	//vado in enter perchÃ¨ c'Ã¨ solo un client
 	Goto enter
 	
 	State enter{
@@ -175,7 +175,7 @@ QActor waiter context ctxwaiter{
 			 #]
 			 
 			println("---waiter | invio l'ordine del $ARG al barista")
-			emit makeTea: makeTea($ARG, 1)
+			request barman -m makeTea: makeTea($ARG, 1)
 			 }
 	
 	}
@@ -206,11 +206,11 @@ QActor waiter context ctxwaiter{
 	    println("---waiter | endOrder")
 	} Transition t0 whenTimeVar MaxTime -> askToCollect
 					//whenMsg endCons -> collect
-					whenEvent endCons -> collect
+					whenMsg endCons -> collect
 		
 	State askToCollect{
 		println("---waiter | askToCollect")
-		emit endCons : GOOUT		
+		forward client -m endCons: endCons(ok)
 	}
 	Goto collect		
 	
@@ -600,5 +600,3 @@ QActor waiterwalker context ctxwaiter{
 	}  
 	   
 }
-
- 
