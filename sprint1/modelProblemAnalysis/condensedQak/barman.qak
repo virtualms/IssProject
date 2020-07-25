@@ -2,9 +2,9 @@ System barman
 
 mqttBroker "localhost": 1883 eventTopic "unibo/polar" 
 
-Event makeTea : makeTea( TEA, TABLE )
+Request makeTea : makeTea( TEA, TABLE )
 
-Event teaReady : teaReady( ARG , TABLE)
+Reply teaReady : teaReady( ARG , TABLE)
 
 Context ctxbarman ip [ host="localhost" port=8060]
 //Context ctxwaiter ip [host="127.0.0.1" port=8090]  
@@ -25,14 +25,14 @@ QActor barman context ctxbarman {
 		println("Barman		| waiting")
 	}
 	//Transition t0 whenMsg makeTea -> makingTea
-	Transition t0 whenEvent makeTea -> makingTea
+	Transition t0 whenRequest makeTea -> makingTea
 	
 	State makingTea {
 		updateResource[# "makingTea" #]
 		println("Barman 	| making tea")
 		delay 4000
-		onMsg(makeTea : TEA){	
-			emit teaReady : teaReady(TEA, TABLE)
+		onMsg(makeTea : TEA){
+			replyTo makeTea with teaReady: teaReady(TEA,TABLE)
 		}
 	}
 	Goto waiting
