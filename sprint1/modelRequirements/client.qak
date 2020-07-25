@@ -3,21 +3,20 @@ System client
 //MESSAGES
 
 //from smartbell
-Dispatch clientWait: clientWait(TIME)
-Reply tempNo : tempNo(val)
-Reply tempOk : tempOk(ID)
-
-//to smartbell
-Request clientInHall : clientInHall(msg)
-
+Request enter: enter(TEMP) 
+Reply tempNotOk : tempNotOk(OK)  
+Reply tempOk : tempOk(TIME, ID)
+ 
 //client-waiter
-Dispatch callWaiter: callWaiter(ok)
-Dispatch atTable : atTable(table)
-Dispatch waiterReady : waiterReady(msg)
-Dispatch order : order(tea)
-Dispatch orderDelivered : orderDelivered(tea)
-Dispatch paymentOk : paymentOk(bill)
-Event endCons : endCons(cons)
+Dispatch endCons: endCons(ok) 
+
+Request readyToOrder: readyToOrder(TABLE) 
+Reply   atTable: atTable(TABLE) 
+
+Dispatch order: order(TEA) 
+
+Request readyToPay: readyToPay(TABLE) 
+Dispatch moneyCollected: moneyCollected(AMOUNT) 
 
 Context ctxclient ip [host="127.0.0.1" port=8040]
 Context ctxwaiter ip [host="127.0.0.1" port=8040]
@@ -42,10 +41,10 @@ QActor client context ctxclient{
 			//temperatura controllata tramite smartbell (messaggio a smartbell)
 			//ok ricevo id, altrimenti fuori dal sistema
 			delay 2000
-			request smartbell -m clientInHall: clientInHall($Temp)
+			request smartbell -m enter: enter(37)
 		}
 		Transition t0 
-			whenReply tempNo -> end
+			whenReply tempNotOk -> end
 			whenReply tempOk -> waitingForWaiter
 			
 		State waitingForWaiter{
@@ -55,26 +54,15 @@ QActor client context ctxclient{
 			delay 2000			
 		}
 		Transition t1
-			whenMsg clientWait -> waitingInHall
-			
-		
-		State waitingInHall{
-			println("client | waiting in hall")
-			//ricevo il delaymax, 
-			//onmsg delayMax=payload
-			delay 2000
-		}
-		Transition t2
-			whenMsg atTable -> waitingForOrdering
-			
+			whenReply atTable -> waitingForOrdering
 		
 		State waitingForOrdering{
 			println("client | waiting for ordering")
 			delay 2000
-			forward waiter -m callWaiter: callWaiter(come)
+			request waiter -m readyToOrder: readyToOrder(1)
 		}
 		Transition t3 
-			whenMsg waiterReady -> ordering
+			whenReply atTable -> ordering
 			
 		State ordering{
 			println("client | ordering")
@@ -87,28 +75,29 @@ QActor client context ctxclient{
 		State waitingInTable{
 			println("client | waitingInTable")
 			delay 2000
-			//aspetto finchè non mi arriva il te'
+			//aspetto finchÃ¨ non mi arriva il te'
 		}
 		Transition t4 
-			whenMsg orderDelivered -> consuming
+			whenMsg order -> consuming
 		
 		State consuming{
 			println("client | consuming")
 			delay 10000
-			//consumo il tè e notifico con un evento che ho finito
+			//consumo il tÃ¨ e notifico con un evento che ho finito
 			//oppure vengo escortato dal waiter ad andarmene se tempo>tmax
-			emit endCons: endCons
+			request waiter -m readyToPay: readyToPay(ok)
 		}
 		Transition t5 
-			whenEvent endCons -> paying
+			whenReply atTable -> paying
 				
 		State paying{
 			println("client | paying")
 			delay 2000
+			
 			//pago e vengo accompagnato all'uscita dal waiter
 		}
 		Transition t6
-			whenMsg paymentOk ->  end
+			whenMsg moneyCollected ->  end
 		
 		State end{
 			println("client | end")
