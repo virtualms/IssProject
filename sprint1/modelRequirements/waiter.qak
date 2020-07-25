@@ -102,6 +102,7 @@ QActor waiter context ctxwaiter{
 		updateResource[# "orderManagement" #]
 		println("---waiter | getOrder")
 		// vado al tavolo che vuole ordinare e prendo l'ordine
+		replyTo readyToOrder with atTable: atTable(OK)
 		
 	}Transition t2 whenMsg order -> sendOrder
 
