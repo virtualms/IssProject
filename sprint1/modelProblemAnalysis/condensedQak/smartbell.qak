@@ -3,7 +3,7 @@ System smartbell
 mqttBroker "localhost": 1883 eventTopic "unibo/polar"
 
 //MESSAGES
-Event newClient : newClient(OK)
+Dispatch newClient : newClient(OK)
 Dispatch newClientWait : newClientWait(TIME)
 Dispatch clientWait: clientWait(TIME)
 
@@ -48,7 +48,7 @@ QActor smartbell context ctxsmartbell{
 		//else generate id; 
 		replyTo clientInHall with tempOk: tempOk(temp)
 		
-		emit newClient : newClient(id)	
+		forward waiter -m newClient: newClient(ID)
 	} 
 	Transition t1 
 		whenMsg newClientWait -> sendTime
