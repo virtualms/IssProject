@@ -22,8 +22,9 @@ Dispatch orderDelivered: orderDelivered(OK)
 Dispatch dirtyTable: dirtyTable(OK)
 
 Request moveToEntrance : moveToEntrance(ARG)
-Request moveToTable1 : moveToTable1(ARG)
-Request moveToTable2 : moveToTable2(ARG)
+//Request moveToTable1 : moveToTable1(ARG)
+//Request moveToTable2 : moveToTable2(ARG)
+Request moveToTable : moveToTable(TABLE)
 Request moveToBarman : moveToBarman(ARG)
 Request moveToExit : moveToExit(ARG)
 Request moveToHome : moveToHome(ARG)
@@ -266,6 +267,10 @@ QActor waiter context ctxwaiter{
 QActor walker context ctxwaiter{
 	
 	[#
+		var ARG = 0
+		var X_tmp		= "0"
+		var Y_tmp		= "0"
+
 		var X_home		= "0"
 		var Y_home		= "0"
 		
@@ -294,8 +299,9 @@ QActor walker context ctxwaiter{
 	}
 	Transition t0
   				  whenRequest moveToEntrance -> moveToEntrance
-  				  whenRequest moveToTable1 -> moveToTable1
-  				  whenRequest moveToTable2 -> moveToTable2 
+//  				  whenRequest moveToTable1 -> moveToTable1
+//  				  whenRequest moveToTable2 -> moveToTable2 
+  				  whenRequest moveToTable -> moveToTable
 				  whenRequest moveToBarman -> moveToBarman 
 				  whenRequest moveToExit -> moveToExit
 				  whenRequest moveToHome -> moveToHome 
@@ -309,31 +315,33 @@ QActor walker context ctxwaiter{
 		println("---walker | respondEntrance")	
 		replyTo moveToEntrance with moveOk : OK
 	} Goto wait
+	
+	State moveToTable {
+		println("---walker | moveToTable")	
 		
+		onMsg(moveToTable : moveToTable(TABLE)){
+			
+			[# 
+				ARG = payloadArg(0).toString().toInt()
+				
+				if(ARG == 1){
+					X_tmp = X_teatable1
+					Y_tmp = Y_teatable1
+				}else{
+					X_tmp = X_teatable2
+					Y_tmp = Y_teatable2
+				}
+				
+			 #]
+			
+		}
+		
+		request waiterwalker -m movetoCell : movetoCell ($X_tmp, $Y_tmp)	
+	} Transition t0 whenReply atcell -> respondTeaTable
 	
-	
-	
-	State moveToTable1 {
-		println("---walker | moveToTable1")	
-		request waiterwalker -m movetoCell : movetoCell ($X_teatable1, $Y_teatable1)	
-	} Transition t0 whenReply atcell -> respondTeaTable1
-	
-	State respondTeaTable1 {
-		println("---walker | respondTeaTable1")	
-		replyTo moveToTable1 with moveOk : OK
-	} Goto wait	
-	
-	
-	
-	
-	State moveToTable2 {
-		println("---walker | moveToTable2")	
-		request waiterwalker -m movetoCell : movetoCell ($X_teatable2, $Y_teatable2)	
-	} Transition t0 whenReply atcell -> respondTeaTable2
-	
-	State respondTeaTable2 {
-		println("---walker | respondTeaTable2")	
-		replyTo moveToTable2 with moveOk : OK
+	State respondTeaTable {
+		println("---walker | respondTeaTable ")	
+		replyTo moveToTable with moveOk : OK
 	} Goto wait	
 	
 	
