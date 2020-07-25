@@ -6,24 +6,23 @@ mqttBroker "localhost": 1883 eventTopic "unibo/polar"
 // DISPATCH REQUEST/REPLY AND EVENT
 
 //Waiter
-Event newClient : newClient(ID)
-Event endCons: endCons(OK)
-Event teaReady: orderReady(TEA, TABLE)
-Event makeTea: makeTea(TEA, TABLE)
+Request waitTime: waitTime(ID) 
+Reply   waitTimeAnswer: waitTime(TIME) 
 
-Dispatch newClientWait : newClientWait(TIME)
-Dispatch atTable: atTable(OK)
-Dispatch clientReady : clientReady(OK)
-Dispatch paymentOK: paymentOK(OK)
-Dispatch waiterReady: waiterReady(OK)
-Dispatch callWaiter : callWaiter(OK)
-Dispatch order: order(TEA)
-Dispatch orderDelivered: orderDelivered(OK)
-Dispatch dirtyTable: dirtyTable(OK)
+Request makeTea : makeTea( TEA, TABLE) 
+Reply teaReady : teaReady( TEA , TABLE) 
 
-Dispatch end       	: end(ARG) 
+Dispatch endCons: endCons(ok)
 
-Reply moveOk : moveOk(ARG)
+Request readyToOrder: readyToOrder(TABLE) 
+Reply   atTable: atTable(TABLE) 
+
+Dispatch order: order(TEA) 
+
+Request readyToPay: readyToPay(TABLE) 
+Dispatch moneyCollected: moneyCollected(AMOUNT) 
+
+Dispatch dirtyTable: dirtyTable(TABLE) 
 
 // CONTEXT
 Context ctxwaiter ip [host="localhost" port=8090]  
@@ -32,7 +31,7 @@ Context ctxsmartbell ip [host="127.0.0.1" port=8050]
 
 //CODEDQACTOR
 ExternalQActor client context ctxsmartbell
-//ExternalQActor barman context ctxwaiter
+ExternalQActor barman context ctxwaiter
 ExternalQActor smartbell context ctxsmartbell
 
 
@@ -65,15 +64,15 @@ QActor waiter context ctxwaiter{
 	Transition t0 
 				  whenTimeVar WaitValue -> goHome
 				  whenMsg dirtyTable -> clean
-  				  whenEvent newClient -> client
-			      whenMsg callWaiter -> getOrder
-			      whenEvent teaReady -> serve  
+  				  whenRequest waitTime -> client
+			      whenRequest readyToOrder -> getOrder
+			      whenReply teaReady -> serve  
 			  
 	State client{
 		updateResource[# "newClient" #]
 		println("---waiter | client")
 		
-		onMsg(newClient : newClient(ID)){
+		onMsg(waitTime : waitTime(ID)){
 			
 			[# 
 				ARG = payloadArg(0)
@@ -86,7 +85,7 @@ QActor waiter context ctxwaiter{
 		//(lo accolgo appena possibile)
 
 		//Assumendo che ci sia un solo cliente (waitTime = 0)
-		forward smartbell -m newClientWait: newClientWait(0)
+		replyTo waitTime with waitTimeAnswer: waitTimeAnswer(0)
 		}
 	}
 	//vado in enter perchè c'è solo un client
@@ -95,41 +94,17 @@ QActor waiter context ctxwaiter{
 	State enter{
 		println("---waiter | enter")
 		// vado alla porta, prendo il client e lo faccio accomodare a un tavolo
-		// forward client -m atTable: atTable(ok), il cliente è al tavolo e può decidere cosa ordinare
-	}
-//	Transition t0
-		Goto wait
-//		whenReply moveOk -> atEntrance
-		
-//	State atEntrance{
-//		println("---waiter | atEntrance")
-//		//vado al tavolo
-//	} Transition t0
-//		whenReply moveOk -> atTableFromEntrance
-//		
-//	State atTableFromEntrance{
-//		println("---waiter | atTableFromEntrance")
-//		delay 2000
-//		forward client -m atTable: atTable(ok)
-//	}
-//	Goto wait 
 	
+	}Goto wait
+
+
 	State getOrder{
 		updateResource[# "orderManagement" #]
 		println("---waiter | getOrder")
 		// vado al tavolo che vuole ordinare e prendo l'ordine
 		
-	}
-	//Transition t1 whenReply moveOk -> waitingOrder
-	Transition t2 whenMsg order -> sendOrder
-	
-//	State waitingOrder{
-//		println("---waiter | waitingOrder")
-//		
-//		forward client -m waiterReady: waiterReady(OK)
-//	}
-//	Transition t1 
-//		whenMsg order -> sendOrder
+	}Transition t2 whenMsg order -> sendOrder
+
 	
 	State sendOrder{
 	// invio l'ordine al barman
@@ -141,7 +116,7 @@ QActor waiter context ctxwaiter{
 			 #]
 			 
 			println("---waiter | invio l'ordine del $ARG al barista")
-			emit makeTea: makeTea($ARG, 1)
+			request barman -m makeTea: makeTea($ARG, 1)
 		}
 	
 	}
@@ -151,35 +126,19 @@ QActor waiter context ctxwaiter{
 		updateResource[# "serving" #]
 		println("---waiter | serve")
 		// vado dal barman per prendere l'ordine e lo porto al tavolo
-	}
-	//Transition t0 whenReply moveOk -> atBarman
-	Goto endOrder
-			
-	
-//	State atBarman{
-//		println("---waiter | atBarman")
-//		//prendo l'ordine da barman
-//	} 
-//	Transition t0 whenReply moveOk -> atTableFromBarman
-//	Goto atTableFromBarman
-		
-//	State atTableFromBarman{
-//		println("---waiter | ordine portato al tavolo")
-//		forward client -m orderDelivered: orderDelivered(OK)
-//	}Goto endOrder
-	
+	} Goto endOrder
+
 	State endOrder {
 	    println("---waiter | endOrder")
 	    //consegno l'ordine al client ed aspetto che finisca o che finisca
 	    //il tempo a disposizione del client
 	} Transition t0 whenTimeVar MaxTime -> askToCollect
-					//whenMsg endCons -> collect
-					whenEvent endCons -> collect
+					whenMsg endCons -> collect
 		
 	State askToCollect{
 		println("---waiter | askToCollect")
 		//il client ha finito
-		emit endCons : GOOUT		
+		forward client -m endCons: endCons(NOW)	
 	}
 	Goto collect		
 	
@@ -206,7 +165,7 @@ QActor waiter context ctxwaiter{
 	State endExit{
 		println("---waiter | endExit")
 		// pagamento effettuato con successo
-		forward client -m paymentOK: paymentOK
+		forward client -m moneyCollected: moneyCollected
 	}
 	Goto wait
 	
