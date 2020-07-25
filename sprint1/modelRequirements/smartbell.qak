@@ -3,13 +3,12 @@ System smartbell
 mqttBroker "localhost": 1883 eventTopic "unibo/polar"
 
 //MESSAGES
-Event newClient : newClient(OK)
-Dispatch newClientWait : newClientWait(TIME)
-Dispatch clientWait: clientWait(TIME)
+Request enter: enter(TEMP) 
+Reply tempNotOk : tempNotOk(OK)  
+Reply tempOk : tempOk(TIME, ID) 
 
-Request clientInHall : clientInHall(msg)
-Reply tempNo : tempNo(val)
-Reply tempOk : tempOk(ID)
+Request waitTime: waitTime(ID) 
+Reply   waitTimeAnswer: waitTimeAnswer (TIME) 
 
 //CONTEXT
 Context ctxwaiter ip [host="127.0.0.1" port=8090] 
@@ -31,26 +30,26 @@ QActor smartbell context ctxsmartbell{
 		println("smartbell | waiting")
 	}
 	Transition t0 
-		whenRequest clientInHall -> check
+		whenRequest enter -> check
 		
 	State check{
 		println("smartbell | check")
 		//temp
 		//if [# temp > 37.5 #] replyTo clientInHall with tempNo("value too high")
 		//else generate id; 
-		replyTo clientInHall with tempOk: tempOk(temp)
+
 		
 		//notifico l'entrata nella tearoom di un nuovo client
-		emit newClient : newClient(id)	
+		request waiter -m waitTime: waitTime(ID)
 	} 
 	Transition t1 
-		whenMsg newClientWait -> sendTime
+		whenReply waitTimeAnswer -> sendTime
 		
 	State sendTime{
 		println("smartbell | sendTime")
 		
 		//mostro al client il tempo di attesa
-		forward client -m clientWait: clientWait(time)
+		replyTo enter with tempOk: tempOk(temp)
 	}
 	Goto waiting
 	
