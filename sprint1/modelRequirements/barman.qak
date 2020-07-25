@@ -2,8 +2,8 @@ System barman
 
 mqttBroker "localhost": 1883 eventTopic "unibo/polar" 
 
-Event makeTea : makeTea(TEA, TABLE)
-Event teaReady : teaReady(ARG, TABLE)
+Request makeTea : makeTea( TEA, TABLE) 
+Reply teaReady : teaReady( TEA , TABLE) 
 
 Context ctxbarman ip [ host="localhost" port=8060]
 
@@ -23,7 +23,7 @@ QActor barman context ctxbarman {
 		println("Barman		| waiting")
 	}
 	//Transition t0 whenMsg makeTea -> makingTea
-	Transition t0 whenEvent makeTea -> makingTea
+	Transition t0 whenRequest makeTea -> makingTea
 	
 	State makingTea {
 		updateResource[# "makingTea" #]
@@ -33,7 +33,7 @@ QActor barman context ctxbarman {
 		
 		//ho completato il tea per il tavolo TABLE
 		onMsg(makeTea : makeTea(TEA,TABLE)){	
-			emit teaReady : teaReady(TEA, TABLE)
+			replyTo makeTea with teaReady: teaReady(TEA,TABLE)
 		}
 	}
 	Goto waiting
