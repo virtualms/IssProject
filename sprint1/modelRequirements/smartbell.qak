@@ -49,7 +49,7 @@ QActor smartbell context ctxsmartbell{
 		println("smartbell | sendTime")
 		
 		//mostro al client il tempo di attesa
-		replyTo enter with tempOk: tempOk(temp)
+		replyTo enter with tempOk: tempOk(temp, time)
 	}
 	Goto waiting
 	
