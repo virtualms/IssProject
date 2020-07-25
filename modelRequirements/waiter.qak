@@ -1,0 +1,180 @@
+System waiter
+
+// BROKER
+mqttBroker "localhost": 1883 eventTopic "unibo/polar"
+
+// DISPATCH REQUEST/REPLY AND EVENT
+
+//Waiter
+Request waitTime: waitTime(ID) 
+Reply   waitTimeAnswer: waitTime(TIME) 
+
+Request makeTea : makeTea( TEA, TABLE) 
+Reply teaReady : teaReady( TEA , TABLE) 
+
+Dispatch endCons: endCons(ok)
+
+Request readyToOrder: readyToOrder(TABLE) 
+Reply   atTable: atTable(TABLE) 
+
+Dispatch order: order(TEA) 
+
+Request readyToPay: readyToPay(TABLE) 
+Dispatch moneyCollected: moneyCollected(AMOUNT) 
+
+Dispatch dirtyTable: dirtyTable(TABLE) 
+
+// CONTEXT
+Context ctxwaiter ip [host="localhost" port=8090]  
+//Context ctxbarman ip [host="127.0.0.1" port=8060]
+Context ctxsmartbell ip [host="127.0.0.1" port=8050]
+
+//CODEDQACTOR
+ExternalQActor client context ctxsmartbell
+ExternalQActor barman context ctxwaiter
+ExternalQActor smartbell context ctxsmartbell
+
+
+//ACTOR
+QActor waiter context ctxwaiter{
+	// Variabili
+	[#
+			var tavolo1
+			//var tavolo2
+			var waitValue = 10000
+	#]
+
+	// Stato iniziale
+	State s0 initial{
+		println("---waiter | s0")
+		
+		discardMsg Off
+	}
+	Goto wait
+	
+	State wait{
+		updateResource[# "waiting" #]
+		println("---waiter | wait")		
+		// aspetto per un'azione da fare
+		// scaduto waitValue torno a Home
+		
+		//if [# tavolo = dirty # ] automsg dirtyTable;
+		
+	}
+	Transition t0 
+				  whenTimeVar WaitValue -> goHome
+				  whenMsg dirtyTable -> clean
+  				  whenRequest waitTime -> client
+			      whenRequest readyToOrder -> getOrder
+			      whenReply teaReady -> serve  
+			  
+	State client{
+		updateResource[# "newClient" #]
+		println("---waiter | client")
+		
+		onMsg(waitTime : waitTime(ID)){
+			
+			[# 
+				ARG = payloadArg(0)
+			 #]
+			
+		println("---waiter | NUOVO CLIENTE CON ID: $ARG")	
+		// comunico con lo smart bell dicendogli quanto debba aspettare il cliente
+		
+		//if deve aspettare -> calcolo tempo massimo e glielo comunico oppure gli dico tempo di attesa 0
+		//(lo accolgo appena possibile)
+
+		//Assumendo che ci sia un solo cliente (waitTime = 0)
+		replyTo waitTime with waitTimeAnswer: waitTimeAnswer(0)
+		}
+	}
+	//vado in enter perchè c'è solo un client
+	Goto enter
+	
+	State enter{
+		println("---waiter | enter")
+		// vado alla porta, prendo il client e lo faccio accomodare a un tavolo
+	
+	}Goto wait
+
+
+	State getOrder{
+		updateResource[# "orderManagement" #]
+		println("---waiter | getOrder")
+		// vado al tavolo che vuole ordinare e prendo l'ordine
+		replyTo readyToOrder with atTable: atTable(OK)
+		
+	}Transition t2 whenMsg order -> sendOrder
+
+	
+	State sendOrder{
+	// invio l'ordine al barman
+	println("---waiter | sendOrder")
+	onMsg(order: order(TEA)){
+			
+			[# 
+				ARG = payloadArg(0)
+			 #]
+			 
+			println("---waiter | invio l'ordine del $ARG al barista")
+			request barman -m makeTea: makeTea($ARG, 1)
+		}
+	
+	}
+	Goto wait
+	
+	State serve{
+		updateResource[# "serving" #]
+		println("---waiter | serve")
+		// vado dal barman per prendere l'ordine e lo porto al tavolo
+		forward client -m order: order(TEA)
+	} Goto endOrder
+
+	State endOrder {
+	    println("---waiter | endOrder")
+	    //consegno l'ordine al client ed aspetto che finisca o che finisca
+	    //il tempo a disposizione del client
+	} Transition t0 whenRequest readyToPay -> collect
+			
+	State collect{
+		updateResource[# "endClient" #]
+		println("---waiter | collect")
+		// vado al tavolo per prendere il pagamento dal client
+		
+		[#
+			tavolo1 = dirty
+		#]
+		replyTo readyToPay with atTable: atTable(1)
+	} Goto exit
+	
+	State exit{
+		println("---waiter | exit")
+		// accompagno il client all'uscita
+	} Goto endExit
+	
+	State endExit{
+		println("---waiter | endExit")
+		// pagamento effettuato con successo
+		forward client -m moneyCollected: moneyCollected
+	}
+	Goto wait
+	
+	State clean{
+		updateResource[# "cleaning" #]
+		println("---waiter | clean")
+
+		delay 8000
+		[#
+			tavolo1 = clean
+		#]
+			
+	}
+	//Transition t0 whenReply moveOk -> wait
+	Goto wait
+	
+	State goHome{
+		println("---waiter | goHome")
+	}
+	Goto wait
+	//Transition t0 whenReply moveOk -> wait
+}
