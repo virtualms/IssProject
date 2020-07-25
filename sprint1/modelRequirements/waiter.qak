@@ -127,22 +127,15 @@ QActor waiter context ctxwaiter{
 		updateResource[# "serving" #]
 		println("---waiter | serve")
 		// vado dal barman per prendere l'ordine e lo porto al tavolo
+		forward client -m order: order(TEA)
 	} Goto endOrder
 
 	State endOrder {
 	    println("---waiter | endOrder")
 	    //consegno l'ordine al client ed aspetto che finisca o che finisca
 	    //il tempo a disposizione del client
-	} Transition t0 whenTimeVar MaxTime -> askToCollect
-					whenMsg endCons -> collect
-		
-	State askToCollect{
-		println("---waiter | askToCollect")
-		//il client ha finito
-		forward client -m endCons: endCons(NOW)	
-	}
-	Goto collect		
-	
+	} Transition t0 whenRequest readyToPay -> collect
+			
 	State collect{
 		updateResource[# "endClient" #]
 		println("---waiter | collect")
@@ -151,17 +144,13 @@ QActor waiter context ctxwaiter{
 		[#
 			tavolo1 = dirty
 		#]
-		
-	}
-	//Transition t0 whenReply moveOk -> exit
-	Goto exit
+		replyTo readyToPay with atTable: atTable(1)
+	} Goto exit
 	
 	State exit{
 		println("---waiter | exit")
 		// accompagno il client all'uscita
-	}
-	//Transition t0 whenReply moveOk -> endExit
-	Goto endExit
+	} Goto endExit
 	
 	State endExit{
 		println("---waiter | endExit")
