@@ -143,18 +143,22 @@ QActor tearoom context ctxwaiter{
    
    State tableToClean{
    	println("tearoom | tableToClean")
-		solve( teatable(1, dirty))
-		ifSolved{ replyTo tableToClean with tableToClear: tableToClear(1) }
+		solve( teatable(X, dirty))
+		ifSolved{ 
+			[# 
+				TABLE = getCurSol("X").toString().toInt()
+			#]
+			solve(dirtyTobusy($TABLE))
+			replyTo tableToClean with tableToClear: tableToClear($TABLE)
+		}
 		else{
-			solve( teatable(2, dirty))
-			ifSolved{ replyTo tableToClean with tableToClear: tableToClear(2) }
-			else{
-				solve( teatable(1, clear))
-				ifSolved{ replyTo tableToClean with tableToSanitize: tableToSanitize(1) }
-				else{
-					solve( teatable(2, clear))
-					ifSolved{ replyTo tableToClean with tableToSanitize: tableToSanitize(2) }					
-				}	
+			solve( teatable(X, clear))
+			ifSolved{ 
+				[# 
+					TABLE = getCurSol("X").toString().toInt()
+				#]
+				solve(clearTobusy($TABLE))
+				replyTo tableToClean with tableToSanitize: tableToSanitize($TABLE)
 			}	
 		}
 		
@@ -418,6 +422,7 @@ QActor waiterbody context ctxwaiter{
    		delay 5000
 		request tearoom -m updateSanitize: updateSanitize($TABLE)
 		request tearoom -m tableToClean: tableToClean(OK)
+		
 
    } Transition t0 whenReply sanitizeUpdated -> wait
    
@@ -994,4 +999,3 @@ QActor waiterwalker context ctxwaiter{
 	}  
 	   
 }
-

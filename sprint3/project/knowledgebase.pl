@@ -21,14 +21,26 @@ dirtyTable(N)	 :-
 	assert( teatable( N, dirty ) ).
 dirtyTable(N).	
 
-clearTable(N)	 :-
+dirtyTobusy(N)	 :-
 	retract( teatable( N, dirty ) ),
+	!,
+	assert( teatable( N, toClear ) ).
+dirtyTobusy(N).	
+
+clearTable(N)	 :-
+	retract( teatable( N, toClear ) ),
 	!,
 	assert( teatable( N, clear ) ).
 clearTable(N).	
 
-cleanTable(N)	 :-
+clearTobusy(N)	 :-
 	retract( teatable( N, clear ) ),
+	!,
+	assert( teatable( N, toSanitize ) ).
+clearTobusy(N).	
+
+cleanTable(N)	 :-
+	retract( teatable( N, toSanitize ) ),
 	!,
 	assert( teatable( N, clean ) ).
 cleanTable(N).	

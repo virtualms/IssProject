@@ -144,7 +144,12 @@ val mqttbrokerAddr    = "localhost"//"tcp://broker.hivemq.com"
 
 			delay(4000)
 			
-			checkResourcePattern("((.*?)clear(.*?)){1}", teaRoom) //to check the presence of 1 clear table
+			checkResourcePattern("((.*?)toClear(.*?)){1}", teaRoom) //to check the presence of 1 toClear table
+			checkResourcePattern("((.*?)clean(.*?)){1}", teaRoom) //to check the presence of 1 clean table
+		
+			delay(6000)
+			
+			checkResourcePattern("((.*?)toSanitize(.*?)){1}", teaRoom) //to check the presence of 1 toClear table
 			checkResourcePattern("((.*?)clean(.*?)){1}", teaRoom) //to check the presence of 1 clean table
 			
 			delay(10000)
