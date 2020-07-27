@@ -112,33 +112,36 @@ QActor tearoom context ctxwaiter{
 				   whenRequest updateSanitize -> sanitize
   
    State waitTime{
-   	println("tearoom | waitTime")
-   			solve(teatable(X, clean))
-   			ifSolved{
-				[# 
-					TABLE = getCurSol("X").toString().toInt()
-				#]
-				solve(takenTable($TABLE))
-				replyTo calculateTime with time: time(0, $TABLE)
-   			}
-   			else{
-   				solve(teatable(X, dirty))
-   				ifSolved{
-   					replyTo calculateTime with time: time(10000, 0)
-   				}
-   				else{
-   					solve(teatable(X, taken))
-   					ifSolved{
-   						replyTo calculateTime with time: time(20000, 0)
-   					}
-   					else{
-   						solve(teatable(X, clear))
-   						ifSolved{
-   							replyTo calculateTime with time: time(5000, 0)
-   						}
-   					}
-   				}
-   			}
+       println("tearoom | waitTime")
+               solve(teatable(X, clean))
+               ifSolved{
+                [#
+                    TABLE = getCurSol("X").toString().toInt()
+                #]
+                solve(takenTable($TABLE))
+                replyTo calculateTime with time: time(0, $TABLE)
+               }
+               else{
+                   solve(teatable(X, dirty))
+                   ifSolved{
+                       replyTo calculateTime with time: time(10000, 0)
+                   }
+                   else{
+                       solve(teatable(X, taken))
+                       ifSolved{
+                           replyTo calculateTime with time: time(20000, 0)
+                       }
+                       else{
+                           solve(teatable(X, clear))
+                           ifSolved{
+                               replyTo calculateTime with time: time(5000, 0)
+                           }
+                           else{
+                               replyTo calculateTime with time: time(7000, 0)
+                           }
+                       }
+                   }
+               }
    }Goto wait
    
    State tableToClean{
