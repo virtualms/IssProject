@@ -115,26 +115,27 @@ QActor tearoom context ctxwaiter{
    	println("tearoom | waitTime")
    			solve(teatable(X, clean))
    			ifSolved{
-   				
-				solve(teatable(X, clean))
-				ifSolved{
-					[# 
-						TABLE = getCurSol("X").toString().toInt()
-					#]
-					solve(takenTable($TABLE))
-					replyTo calculateTime with time: time(0, $TABLE)
-				}
-   				
+				[# 
+					TABLE = getCurSol("X").toString().toInt()
+				#]
+				solve(takenTable($TABLE))
+				replyTo calculateTime with time: time(0, $TABLE)
    			}
    			else{
    				solve(teatable(X, dirty))
    				ifSolved{
-   					replyTo calculateTime with time: time(5000, 0)
+   					replyTo calculateTime with time: time(10000, 0)
    				}
    				else{
    					solve(teatable(X, taken))
    					ifSolved{
-   						replyTo calculateTime with time: time(10000, 0)
+   						replyTo calculateTime with time: time(20000, 0)
+   					}
+   					else{
+   						solve(teatable(X, clear))
+   						ifSolved{
+   							replyTo calculateTime with time: time(5000, 0)
+   						}
    					}
    				}
    			}
@@ -324,9 +325,9 @@ QActor waiterbody context ctxwaiter{
 		
 		delay 500
 		
-	}Transition t0 whenReply tableToClear -> goToClear
+	}Transition t0 whenMsg newClient -> goToEntrance
+				   whenReply tableToClear -> goToClear
 				   whenReply tableToSanitize -> goToSanitize
-	 			   whenMsg newClient -> goToEntrance
 	 			   whenRequest readyToOrder -> goToTakeOrder
    				   whenReply teaReady -> takeTea
 				   whenRequest readyToPay -> checkTableState
@@ -338,9 +339,9 @@ QActor waiterbody context ctxwaiter{
 		delay 500
    		
 	}Transition t0 whenTimeVar GoHomeTime -> goToHome
+	 			   whenMsg newClient -> goToEntrance
 				   whenReply tableToClear -> goToClear
 				   whenReply tableToSanitize -> goToSanitize
-				   whenMsg newClient -> goToEntrance
 	 			   whenRequest readyToOrder -> goToTakeOrder
    				   whenReply teaReady -> takeTea
 				   whenRequest readyToPay -> checkTableState
