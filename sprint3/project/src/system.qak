@@ -115,26 +115,27 @@ QActor tearoom context ctxwaiter{
    	println("tearoom | waitTime")
    			solve(teatable(X, clean))
    			ifSolved{
-   				
-				solve(teatable(X, clean))
-				ifSolved{
-					[# 
-						TABLE = getCurSol("X").toString().toInt()
-					#]
-					solve(takenTable($TABLE))
-					replyTo calculateTime with time: time(0, $TABLE)
-				}
-   				
+				[# 
+					TABLE = getCurSol("X").toString().toInt()
+				#]
+				solve(takenTable($TABLE))
+				replyTo calculateTime with time: time(0, $TABLE)
    			}
    			else{
    				solve(teatable(X, dirty))
    				ifSolved{
-   					replyTo calculateTime with time: time(5000, 0)
+   					replyTo calculateTime with time: time(10000, 0)
    				}
    				else{
    					solve(teatable(X, taken))
    					ifSolved{
-   						replyTo calculateTime with time: time(10000, 0)
+   						replyTo calculateTime with time: time(20000, 0)
+   					}
+   					else{
+   						solve(teatable(X, clear))
+   						ifSolved{
+   							replyTo calculateTime with time: time(5000, 0)
+   						}
    					}
    				}
    			}
@@ -142,18 +143,22 @@ QActor tearoom context ctxwaiter{
    
    State tableToClean{
    	println("tearoom | tableToClean")
-		solve( teatable(1, dirty))
-		ifSolved{ replyTo tableToClean with tableToClear: tableToClear(1) }
+		solve( teatable(X, dirty))
+		ifSolved{ 
+			[# 
+				TABLE = getCurSol("X").toString().toInt()
+			#]
+			solve(dirtyTobusy($TABLE))
+			replyTo tableToClean with tableToClear: tableToClear($TABLE)
+		}
 		else{
-			solve( teatable(2, dirty))
-			ifSolved{ replyTo tableToClean with tableToClear: tableToClear(2) }
-			else{
-				solve( teatable(1, clear))
-				ifSolved{ replyTo tableToClean with tableToSanitize: tableToSanitize(1) }
-				else{
-					solve( teatable(2, clear))
-					ifSolved{ replyTo tableToClean with tableToSanitize: tableToSanitize(2) }					
-				}	
+			solve( teatable(X, clear))
+			ifSolved{ 
+				[# 
+					TABLE = getCurSol("X").toString().toInt()
+				#]
+				solve(clearTobusy($TABLE))
+				replyTo tableToClean with tableToSanitize: tableToSanitize($TABLE)
 			}	
 		}
 		
@@ -324,9 +329,9 @@ QActor waiterbody context ctxwaiter{
 		
 		delay 500
 		
-	}Transition t0 whenReply tableToClear -> goToClear
+	}Transition t0 whenMsg newClient -> goToEntrance
+				   whenReply tableToClear -> goToClear
 				   whenReply tableToSanitize -> goToSanitize
-	 			   whenMsg newClient -> goToEntrance
 	 			   whenRequest readyToOrder -> goToTakeOrder
    				   whenReply teaReady -> takeTea
 				   whenRequest readyToPay -> checkTableState
@@ -338,9 +343,9 @@ QActor waiterbody context ctxwaiter{
 		delay 500
    		
 	}Transition t0 whenTimeVar GoHomeTime -> goToHome
+	 			   whenMsg newClient -> goToEntrance
 				   whenReply tableToClear -> goToClear
 				   whenReply tableToSanitize -> goToSanitize
-				   whenMsg newClient -> goToEntrance
 	 			   whenRequest readyToOrder -> goToTakeOrder
    				   whenReply teaReady -> takeTea
 				   whenRequest readyToPay -> checkTableState
@@ -417,6 +422,7 @@ QActor waiterbody context ctxwaiter{
    		delay 5000
 		request tearoom -m updateSanitize: updateSanitize($TABLE)
 		request tearoom -m tableToClean: tableToClean(OK)
+		
 
    } Transition t0 whenReply sanitizeUpdated -> wait
    
@@ -990,7 +996,5 @@ QActor waiterwalker context ctxwaiter{
 		}
  		emit endall : endall(normal) 
  		terminate 1
-	}  
-	   
+	}  	   
 }
-
